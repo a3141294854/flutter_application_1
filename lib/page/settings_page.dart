@@ -14,7 +14,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String _dataBits = '8';
   String _parity = 'None';
   String _stopBits = '1';
-  String _sleMode = '从机';
+  String _sleMode = '标准平衡模式';
   String _slePower = '0';
 
   final List<String> _baudRates = ['9600', '19200', '38400', '57600', '115200'];
@@ -31,31 +31,18 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionTitle('工作模式'),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF4A90D9).withOpacity(0.06),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(child: _buildModeButton('Modbus 模式', true)),
-                Expanded(child: _buildModeButton('广播模式', false)),
-              ],
+          const SizedBox(height: 24),
+          const Text(
+            '参数设置',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF2D4A6F),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
-          _buildSectionTitle('Modbus 地址预设'),
           Container(
-            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
@@ -69,39 +56,56 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             child: Column(
               children: [
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 1.4,
-                  ),
-                  itemCount: 8,
-                  itemBuilder: (context, index) {
-                    return _buildModbusButton(index + 1);
-                  },
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: widget.isConnected ? _resetModbusAddresses : null,
-                      child: Text(
-                        '重置默认',
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Modbus 地址预设',
                         style: TextStyle(
-                          color: widget.isConnected ? const Color(0xFF4A90D9) : const Color(0xFFA0BCD6),
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2D4A6F),
                         ),
                       ),
+                      GestureDetector(
+                        onTap: widget.isConnected ? _resetModbusAddresses : null,
+                        child: Text(
+                          '重置默认',
+                          style: TextStyle(
+                            color: widget.isConnected ? const Color(0xFF4A90D9) : const Color(0xFFA0BCD6),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  height: 1,
+                  color: const Color(0xFFF0F7FF),
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 0.9,
                     ),
-                  ],
+                    itemCount: 8,
+                    itemBuilder: (context, index) => _buildModbusCard(index),
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
           _buildSectionTitle('主设备串口参数'),
           Container(
@@ -169,7 +173,141 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  void _resetModbusAddresses() {}
+  final List<int> _modbusAddresses = [1, 2, 3, 4, 5, 6, 7, 8];
+
+  void _resetModbusAddresses() {
+    setState(() {
+      _modbusAddresses.clear();
+      _modbusAddresses.addAll([1, 2, 3, 4, 5, 6, 7, 8]);
+    });
+  }
+
+  void _showAddressEditor(int index) {
+    final controller = TextEditingController(text: _modbusAddresses[index].toString());
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: const Color(0xFFF0F7FF),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    '编辑地址',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2D4A6F),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F2FF),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'Slot #${index + 1}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF4A90D9),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF4A90D9),
+                  ),
+                  decoration: InputDecoration(
+                    hintText: '1-255',
+                    hintStyle: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFA0BCD6),
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '输入 Modbus 地址 (1-255)',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFFA0BCD6),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF4A90D9),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(color: Color(0xFF4A90D9)),
+                        ),
+                      ),
+                      child: const Text('取消'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final value = int.tryParse(controller.text);
+                        if (value != null && value >= 1 && value <= 255) {
+                          setState(() {
+                            _modbusAddresses[index] = value;
+                          });
+                        }
+                        Navigator.pop(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: const Color(0xFF4A90D9),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text('保存'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildSectionTitle(String title) {
     return Padding(
@@ -207,33 +345,44 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildModbusButton(int index) {
+  Widget _buildModbusCard(int index) {
     return GestureDetector(
-      onTap: widget.isConnected ? () {} : null,
+      onTap: widget.isConnected ? () => _showAddressEditor(index) : null,
       child: Container(
-        width: 64,
-        height: 44,
         decoration: BoxDecoration(
-          color: const Color(0xFFE8F2FF),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFB8D4F0)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE8F2FF), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4A90D9).withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
           children: [
-            Text(
-              '#$index',
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF4A90D9),
-                fontWeight: FontWeight.bold,
+            Positioned(
+              left: 8,
+              top: 8,
+              child: Text(
+                '#${index + 1}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFA0BCD6),
+                ),
               ),
             ),
-            Text(
-              '$index',
-              style: const TextStyle(
-                fontSize: 10,
-                color: Color(0xFF7A9CC6),
+            Center(
+              child: Text(
+                '${_modbusAddresses[index]}',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: widget.isConnected ? const Color(0xFF4A90D9) : const Color(0xFFA0BCD6),
+                ),
               ),
             ),
           ],

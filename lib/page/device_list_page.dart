@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 class DeviceListPage extends StatelessWidget {
   final bool isConnected;
+  final BluetoothDevice? device;
 
-  const DeviceListPage({super.key, required this.isConnected});
+  const DeviceListPage({
+    super.key,
+    required this.isConnected,
+    this.device,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -39,41 +45,41 @@ class DeviceListPage extends StatelessWidget {
     final bool isEmpty = true;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF4A90D9).withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: const Color(0xFF4A90D9).withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
             Container(
-              width: 56,
-              height: 56,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: const Color(0xFFE8F2FF),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Center(
                 child: Text(
                   '#$slot',
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF4A90D9),
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,16 +88,16 @@ class DeviceListPage extends StatelessWidget {
                   Text(
                     'Modbus ID: $slot',
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF2D4A6F),
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 2),
                   Text(
                     isEmpty ? '-- 空闲槽位 --' : '设备名称',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 12,
                       color: isEmpty ? const Color(0xFFA0BCD6) : const Color(0xFF5A7A9A),
                     ),
                   ),
@@ -102,19 +108,19 @@ class DeviceListPage extends StatelessWidget {
               GestureDetector(
                 onTap: isConnected ? () => _showAddDeviceDialog(context, slot) : null,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: isConnected
-                        ? const Color(0xFF4A90D9).withOpacity(0.1)
+                        ? const Color(0xFF4A90D9).withValues(alpha: 0.1)
                         : const Color(0xFFE8F2FF),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
                     '+ 添加',
                     style: TextStyle(
                       color: isConnected ? const Color(0xFF4A90D9) : const Color(0xFFA0BCD6),
                       fontWeight: FontWeight.w500,
-                      fontSize: 14,
+                      fontSize: 12,
                     ),
                   ),
                 ),
@@ -161,10 +167,9 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: const Color(0xFFF0F7FF),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: SingleChildScrollView(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -174,22 +179,22 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                   const Text(
                     '添加设备',
                     style: TextStyle(
-                      fontSize: 20,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF2D4A6F),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE8F2FF),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      'Slot #${widget.slot}',
+                      '#${widget.slot}',
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 11,
                         color: Color(0xFF4A90D9),
                         fontWeight: FontWeight.w500,
                       ),
@@ -197,97 +202,85 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 10),
               TextField(
                 controller: _nameController,
+                style: const TextStyle(fontSize: 13),
                 decoration: InputDecoration(
                   hintText: '设备名称',
+                  isDense: true,
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _macController,
+                      style: const TextStyle(fontSize: 13),
                       decoration: InputDecoration(
                         hintText: 'MAC 地址',
+                        isDense: true,
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide.none,
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Container(
-                    width: 52,
-                    height: 52,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       color: const Color(0xFF4A90D9),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: IconButton(
                       onPressed: () {},
-                      icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
+                      padding: EdgeInsets.zero,
+                      icon: const Icon(Icons.qr_code_scanner, color: Colors.white, size: 18),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
                   children: [
                     GestureDetector(
                       onTap: () => setState(() => _isExpanded = !_isExpanded),
                       child: Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text(
                               '串口参数',
                               style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 13,
                                 color: Color(0xFF2D4A6F),
                               ),
                             ),
-                            Row(
-                              children: [
-                                Text(
-                                  _isExpanded ? '收起' : '展开',
-                                  style: const TextStyle(
-                                    color: Color(0xFF4A90D9),
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  _isExpanded ? Icons.expand_less : Icons.expand_more,
-                                  color: const Color(0xFF4A90D9),
-                                ),
-                              ],
+                            Icon(
+                              _isExpanded ? Icons.expand_less : Icons.expand_more,
+                              color: const Color(0xFF4A90D9),
+                              size: 18,
                             ),
                           ],
                         ),
@@ -304,7 +297,7 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                       Container(
                         height: 1,
                         color: const Color(0xFFF5F5F5),
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        margin: const EdgeInsets.symmetric(horizontal: 10),
                       ),
                       _buildParamRow('数据位', _dataBits, _dataBitsList, (v) {
                         setState(() => _dataBits = v);
@@ -312,7 +305,7 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                       Container(
                         height: 1,
                         color: const Color(0xFFF5F5F5),
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        margin: const EdgeInsets.symmetric(horizontal: 10),
                       ),
                       _buildParamRow('停止位', _stopBits, _stopBitsList, (v) {
                         setState(() => _stopBits = v);
@@ -320,47 +313,46 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                       Container(
                         height: 1,
                         color: const Color(0xFFF5F5F5),
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        margin: const EdgeInsets.symmetric(horizontal: 10),
                       ),
                       _buildParamRow('校验位', _parity, _parityList, (v) {
                         setState(() => _parity = v);
                       }),
-                      const SizedBox(height: 8),
                     ],
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(
                     child: TextButton(
                       onPressed: () => Navigator.pop(context),
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
                         backgroundColor: Colors.white,
                         foregroundColor: const Color(0xFF5A7A9A),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text('取消'),
+                      child: const Text('取消', style: TextStyle(fontSize: 13)),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () => Navigator.pop(context),
                       style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
                         backgroundColor: const Color(0xFF4A90D9),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         elevation: 0,
                       ),
-                      child: const Text('确认'),
+                      child: const Text('确认', style: TextStyle(fontSize: 13)),
                     ),
                   ),
                 ],
@@ -368,7 +360,6 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
             ],
           ),
         ),
-      ),
     );
   }
 
@@ -376,15 +367,15 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
     return InkWell(
       onTap: () => _showOptionsPicker(label, options, value, onChanged),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               label,
               style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
                 color: Color(0xFF2D4A6F),
               ),
             ),
@@ -393,16 +384,16 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                 Text(
                   value,
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 12,
                     color: Color(0xFF4A90D9),
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 2),
                 const Icon(
                   Icons.chevron_right,
                   color: Color(0xFF4A90D9),
-                  size: 20,
+                  size: 16,
                 ),
               ],
             ),
@@ -417,16 +408,17 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFFF0F7FF),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text(
           '选择 $title',
-          style: const TextStyle(color: Color(0xFF2D4A6F)),
+          style: const TextStyle(color: Color(0xFF2D4A6F), fontSize: 15),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: options.map((option) => ListTile(
-                title: Text(option, style: const TextStyle(color: Color(0xFF2D4A6F))),
-                trailing: option == currentValue ? const Icon(Icons.check, color: Color(0xFF4A90D9)) : null,
+                dense: true,
+                title: Text(option, style: const TextStyle(color: Color(0xFF2D4A6F), fontSize: 13)),
+                trailing: option == currentValue ? const Icon(Icons.check, color: Color(0xFF4A90D9), size: 18) : null,
                 onTap: () {
                   onChanged(option);
                   Navigator.pop(context);

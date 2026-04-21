@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 class SettingsPage extends StatefulWidget {
   final bool isConnected;
+  final BluetoothDevice? device;
 
-  const SettingsPage({super.key, required this.isConnected});
+  const SettingsPage({
+    super.key,
+    required this.isConnected,
+    this.device,
+  });
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -27,44 +33,44 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
           const Text(
             '参数设置',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 15,
               fontWeight: FontWeight.bold,
               color: Color(0xFF2D4A6F),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
 
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF4A90D9).withOpacity(0.06),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+                  color: const Color(0xFF4A90D9).withValues(alpha: 0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
                         'Modbus 地址预设',
                         style: TextStyle(
-                          fontSize: 15,
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF2D4A6F),
                         ),
@@ -75,7 +81,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           '重置默认',
                           style: TextStyle(
                             color: widget.isConnected ? const Color(0xFF4A90D9) : const Color(0xFFA0BCD6),
-                            fontSize: 13,
+                            fontSize: 11,
                           ),
                         ),
                       ),
@@ -85,18 +91,18 @@ class _SettingsPageState extends State<SettingsPage> {
                 Container(
                   height: 1,
                   color: const Color(0xFFF0F7FF),
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  margin: const EdgeInsets.symmetric(horizontal: 10),
                 ),
                 Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(10),
                   child: GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 4,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 0.9,
+                      crossAxisSpacing: 6,
+                      mainAxisSpacing: 6,
+                      childAspectRatio: 1.0,
                     ),
                     itemCount: 8,
                     itemBuilder: (context, index) => _buildModbusCard(index),
@@ -105,18 +111,18 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
 
           _buildSectionTitle('主设备串口参数'),
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF4A90D9).withOpacity(0.06),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+                  color: const Color(0xFF4A90D9).withValues(alpha: 0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
@@ -125,33 +131,33 @@ class _SettingsPageState extends State<SettingsPage> {
                 _buildParamRow('波特率', _baudRate, _baudRates, (v) {
                   setState(() => _baudRate = v);
                 }),
-                Container(height: 1, color: const Color(0xFFF0F7FF), margin: const EdgeInsets.symmetric(horizontal: 16)),
+                Container(height: 1, color: const Color(0xFFF0F7FF), margin: const EdgeInsets.symmetric(horizontal: 10)),
                 _buildParamRow('数据位', _dataBits, _dataBitsList, (v) {
                   setState(() => _dataBits = v);
                 }),
-                Container(height: 1, color: const Color(0xFFF0F7FF), margin: const EdgeInsets.symmetric(horizontal: 16)),
+                Container(height: 1, color: const Color(0xFFF0F7FF), margin: const EdgeInsets.symmetric(horizontal: 10)),
                 _buildParamRow('停止位', _stopBits, _stopBitsList, (v) {
                   setState(() => _stopBits = v);
                 }),
-                Container(height: 1, color: const Color(0xFFF0F7FF), margin: const EdgeInsets.symmetric(horizontal: 16)),
+                Container(height: 1, color: const Color(0xFFF0F7FF), margin: const EdgeInsets.symmetric(horizontal: 10)),
                 _buildParamRow('校验位', _parity, _parityList, (v) {
                   setState(() => _parity = v);
                 }),
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 10),
 
           _buildSectionTitle('SLE 参数'),
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF4A90D9).withOpacity(0.06),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+                  color: const Color(0xFF4A90D9).withValues(alpha: 0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
@@ -160,14 +166,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 _buildParamRow('SLE 模式', _sleMode, _sleModes, (v) {
                   setState(() => _sleMode = v);
                 }),
-                Container(height: 1, color: const Color(0xFFF0F7FF), margin: const EdgeInsets.symmetric(horizontal: 16)),
+                Container(height: 1, color: const Color(0xFFF0F7FF), margin: const EdgeInsets.symmetric(horizontal: 10)),
                 _buildParamRow('功率档位', _slePower, _slePowers, (v) {
                   setState(() => _slePower = v);
                 }),
               ],
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -188,9 +194,9 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (context) => Dialog(
         backgroundColor: const Color(0xFFF0F7FF),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,22 +206,22 @@ class _SettingsPageState extends State<SettingsPage> {
                   const Text(
                     '编辑地址',
                     style: TextStyle(
-                      fontSize: 20,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF2D4A6F),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE8F2FF),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      'Slot #${index + 1}',
+                      '#${index + 1}',
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 11,
                         color: Color(0xFF4A90D9),
                         fontWeight: FontWeight.w500,
                       ),
@@ -223,60 +229,60 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 14),
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: TextField(
                   controller: controller,
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 24,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF4A90D9),
                   ),
                   decoration: InputDecoration(
                     hintText: '1-255',
                     hintStyle: const TextStyle(
-                      fontSize: 24,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFFA0BCD6),
                     ),
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               const Text(
                 '输入 Modbus 地址 (1-255)',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   color: Color(0xFFA0BCD6),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
                     child: TextButton(
                       onPressed: () => Navigator.pop(context),
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
                         backgroundColor: Colors.white,
                         foregroundColor: const Color(0xFF4A90D9),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(8),
                           side: const BorderSide(color: Color(0xFF4A90D9)),
                         ),
                       ),
-                      child: const Text('取消'),
+                      child: const Text('取消', style: TextStyle(fontSize: 13)),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
@@ -289,15 +295,15 @@ class _SettingsPageState extends State<SettingsPage> {
                         Navigator.pop(context);
                       },
                       style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
                         backgroundColor: const Color(0xFF4A90D9),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         elevation: 0,
                       ),
-                      child: const Text('保存'),
+                      child: const Text('保存', style: TextStyle(fontSize: 13)),
                     ),
                   ),
                 ],
@@ -311,11 +317,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         title,
         style: const TextStyle(
-          fontSize: 16,
+          fontSize: 13,
           fontWeight: FontWeight.bold,
           color: Color(0xFF2D4A6F),
         ),
@@ -351,25 +357,25 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE8F2FF), width: 1.5),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFE8F2FF), width: 1),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF4A90D9).withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: const Color(0xFF4A90D9).withValues(alpha: 0.03),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
         child: Stack(
           children: [
             Positioned(
-              left: 8,
-              top: 8,
+              left: 6,
+              top: 4,
               child: Text(
                 '#${index + 1}',
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 10,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFFA0BCD6),
                 ),
@@ -379,7 +385,7 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Text(
                 '${_modbusAddresses[index]}',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: widget.isConnected ? const Color(0xFF4A90D9) : const Color(0xFFA0BCD6),
                 ),
@@ -395,15 +401,15 @@ class _SettingsPageState extends State<SettingsPage> {
     return InkWell(
       onTap: widget.isConnected ? () => _showOptionsPicker(label, options, value, onChanged) : null,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               label,
             style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
               color: Color(0xFF2D4A6F),
             ),
           ),
@@ -412,15 +418,15 @@ class _SettingsPageState extends State<SettingsPage> {
                 Text(
                   value,
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 13,
                     color: widget.isConnected ? const Color(0xFF4A90D9) : const Color(0xFFA0BCD6),
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 Icon(
                   Icons.chevron_right,
                   color: widget.isConnected ? const Color(0xFF4A90D9) : const Color(0xFFA0BCD6),
-                  size: 20,
+                  size: 16,
                 ),
               ],
             ),
@@ -435,16 +441,17 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFFF0F7FF),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text(
           '选择 $title',
-          style: const TextStyle(color: Color(0xFF2D4A6F)),
+          style: const TextStyle(color: Color(0xFF2D4A6F), fontSize: 15),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: options.map((option) => ListTile(
-                title: Text(option, style: const TextStyle(color: Color(0xFF2D4A6F))),
-                trailing: option == currentValue ? const Icon(Icons.check, color: Color(0xFF4A90D9)) : null,
+                dense: true,
+                title: Text(option, style: const TextStyle(color: Color(0xFF2D4A6F), fontSize: 13)),
+                trailing: option == currentValue ? const Icon(Icons.check, color: Color(0xFF4A90D9), size: 18) : null,
                 onTap: () {
                   onChanged(option);
                   Navigator.pop(context);

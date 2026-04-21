@@ -2,10 +2,65 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
-class BluetoothConnectPage extends StatefulWidget {
-  final VoidCallback onConnected;
+// TODO [DEV ONLY]: 上线时删除此类
+class _DevSkipButton extends StatelessWidget {
+  final VoidCallback onSkip;
 
-  const BluetoothConnectPage({super.key, required this.onConnected});
+  const _DevSkipButton({required this.onSkip});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onSkip,
+          borderRadius: BorderRadius.circular(8),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.developer_mode, color: Colors.white, size: 18),
+                SizedBox(width: 4),
+                Text(
+                  '开发跳过',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class BluetoothConnectPage extends StatefulWidget {
+  final void Function(BluetoothDevice device) onConnected;
+  // TODO [DEV ONLY]: 上线时删除此参数
+  final VoidCallback? onDevSkip;
+
+  const BluetoothConnectPage({
+    super.key,
+    required this.onConnected,
+    this.onDevSkip,
+  });
 
   @override
   State<BluetoothConnectPage> createState() => _BluetoothConnectPageState();
@@ -115,11 +170,11 @@ class _BluetoothConnectPageState extends State<BluetoothConnectPage> {
       await device.connect(timeout: const Duration(seconds: 15));
       
       if (mounted) {
-        widget.onConnected();
+        _showSuccess(device);
       }
-    } catch (e) {
+    } on Exception catch (e) {
       if (mounted) {
-        _showError('连接失败');
+        _showError(_getErrorMessage(e));
         setState(() {
           _connectingDevice = null;
         });
@@ -127,13 +182,64 @@ class _BluetoothConnectPageState extends State<BluetoothConnectPage> {
     }
   }
 
+  String _getErrorMessage(Exception e) {
+    final errorStr = e.toString().toLowerCase();
+    if (errorStr.contains('timeout') || errorStr.contains('timed out')) {
+      return '连接超时，请确保设备在范围内并重试';
+    } else if (errorStr.contains('already connected')) {
+      return '设备已连接';
+    } else if (errorStr.contains('bond')) {
+      return '配对失败，请先在手机蓝牙设置中配对该设备';
+    } else if (errorStr.contains('permission')) {
+      return '蓝牙权限不足，请检查应用权限设置';
+    } else if (errorStr.contains('state')) {
+      return '蓝牙状态异常，请检查蓝牙是否开启';
+    }
+    return '连接失败: ${e.toString()}';
+  }
+
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
         backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  void _showSuccess(BluetoothDevice device) {
+    final deviceName = device.platformName.isNotEmpty 
+        ? device.platformName 
+        : '设备';
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 8),
+            Text('已连接 $deviceName'),
+          ],
+        ),
+        backgroundColor: const Color(0xFF4CAF50),
+        duration: const Duration(milliseconds: 1500),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted) {
+        widget.onConnected(device);
+      }
+    });
   }
 
   @override
@@ -147,68 +253,93 @@ class _BluetoothConnectPageState extends State<BluetoothConnectPage> {
   }
 
   Widget _buildBluetoothButton() {
-    return GestureDetector(
-      onTap: _startScan,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFE8F2FF), Color(0xFFF5FAFF)],
-                ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF4A90D9).withOpacity(0.15),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
+    return Stack(
+      children: [
+        GestureDetector(
+          onTap: _startScan,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 180,
+                  height: 180,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFE8F2FF), Color(0xFFF5FAFF)],
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF4A90D9).withValues(alpha: 0.15),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: const Icon(
-                Icons.bluetooth,
-                size: 80,
-                color: Color(0xFF4A90D9),
-              ),
+                  child: const Icon(
+                    Icons.bluetooth,
+                    size: 80,
+                    color: Color(0xFF4A90D9),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  '点击连接蓝牙设备',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2D4A6F),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 24),
-            const Text(
-              '点击连接蓝牙设备',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2D4A6F),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        // TODO [DEV ONLY]: 上线时删除此按钮
+        Positioned(
+          bottom: 24,
+          right: 24,
+          child: _DevSkipButton(onSkip: () => _skipToConnected()),
+        ),
+      ],
     );
+  }
+
+  // TODO [DEV ONLY]: 上线时删除此方法
+  void _skipToConnected() {
+    widget.onDevSkip?.call();
   }
 
   Widget _buildDeviceListView() {
     return Column(
       children: [
         // 顶部栏
-        Padding(
+        Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F7FF),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF4A90D9).withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
           child: Row(
             children: [
               IconButton(
                 icon: const Icon(Icons.arrow_back, color: Color(0xFF2D4A6F)),
                 onPressed: _closeList,
               ),
-              const Expanded(
+              Expanded(
                 child: Text(
                   '选择设备',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF2D4A6F),
@@ -219,66 +350,82 @@ class _BluetoothConnectPageState extends State<BluetoothConnectPage> {
             ],
           ),
         ),
-        // 扫描状态和未找到设备 - 居中显示
+        // 扫描状态栏
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_isScanning)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFF4A90D9),
+                  ),
+                ),
+              if (_isScanning) const SizedBox(width: 10),
+              Text(
+                _isScanning
+                    ? '正在扫描... (${_scanResults.length})'
+                    : _scanResults.isEmpty
+                        ? '点击重新扫描'
+                        : '共 ${_scanResults.length} 个设备',
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF5A7A9A),
+                ),
+              ),
+              if (!_isScanning && !_scanResults.isEmpty) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _startScan,
+                  child: const Text(
+                    '刷新',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF4A90D9),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        // 设备列表或空状态
         Expanded(
-          child: Center(
-            child: _isScanning
-                ? Row(
+          child: _scanResults.isEmpty
+              ? Center(
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Color(0xFF4A90D9),
-                        ),
+                      const Icon(
+                        Icons.bluetooth_searching,
+                        size: 64,
+                        color: Color(0xFFA0BCD6),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(height: 16),
                       Text(
-                        '正在扫描... (${_scanResults.length})',
+                        _isScanning ? '正在搜索附近设备...' : '未找到设备',
                         style: const TextStyle(
                           fontSize: 16,
+                          fontWeight: FontWeight.bold,
                           color: Color(0xFF5A7A9A),
                         ),
                       ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: _startScan,
+                        child: const Text(
+                          '重新扫描',
+                          style: TextStyle(color: Color(0xFF4A90D9)),
+                        ),
+                      ),
                     ],
-                  )
-                : _scanResults.isEmpty
-                    ? Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.bluetooth_searching,
-                            size: 64,
-                            color: Color(0xFFA0BCD6),
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            '未找到设备',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF5A7A9A),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextButton(
-                            onPressed: _startScan,
-                            child: const Text(
-                              '重新扫描',
-                              style: TextStyle(color: Color(0xFF4A90D9)),
-                            ),
-                          ),
-                        ],
-                      )
-                    : const SizedBox(),
-          ),
-        ),
-        // 设备列表
-        Expanded(
-          child: _scanResults.isEmpty
-              ? const SizedBox()
+                  ),
+                )
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: _scanResults.length,
@@ -302,7 +449,7 @@ class _BluetoothConnectPageState extends State<BluetoothConnectPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF4A90D9).withOpacity(0.06),
+            color: const Color(0xFF4A90D9).withValues(alpha: 0.06),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),

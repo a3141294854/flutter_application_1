@@ -347,47 +347,103 @@ class _ChildSettingsPageState extends State<ChildSettingsPage> {
       _modbusDeviceTypes.setAll(0, [0, 0, 0, 0, 0, 0, 0, 0]);
       _hasChanges = true;
     });
+    _sendModbusConfig(); // 实时发送
+  }
+
+  /// 实时发送串口配置到设备
+  Future<void> _sendUartConfig() async {
+    if (!widget.isConnected || _isLoading) return;
+    setState(() => _isLoading = true);
+    try {
+      await _service.writeUartConfig(UartConfig(
+        baudLevel: _baudLevel,
+        parity: _parity,
+        stopBits: _stopBits,
+        dataBits: _dataBits,
+      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('串口配置已同步'), backgroundColor: Colors.green, duration: Duration(seconds: 1)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('串口配置失败: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// 实时发送Modbus配置到设备
+  Future<void> _sendModbusConfig() async {
+    if (!widget.isConnected || _isLoading) return;
+    setState(() => _isLoading = true);
+    try {
+      await _service.writeModbusConfig(ModbusConfig(
+        items: List.generate(8, (i) => ModbusItem(addr: _modbusAddresses[i], devType: _modbusDeviceTypes[i])),
+      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Modbus配置已同步'), backgroundColor: Colors.green, duration: Duration(seconds: 1)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Modbus配置失败: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   void _showBaudRatePicker() {
-    _showOptionsPicker('波特率', _baudRates.map((b) => b['label'] as String).toList(), _getBaudRateLabel(), (selected) {
+    _showOptionsPicker('波特率', _baudRates.map((b) => b['label'] as String).toList(), _getBaudRateLabel(), (selected) async {
       final item = _baudRates.firstWhere((b) => b['label'] == selected);
       setState(() {
         _baudLevel = item['value'] as int;
         _hasChanges = true;
       });
+      await _sendUartConfig();
     });
   }
 
   void _showDataBitsPicker() {
-    _showOptionsPicker('数据位', _dataBitsList, '$_dataBits', (selected) {
+    _showOptionsPicker('数据位', _dataBitsList, '$_dataBits', (selected) async {
       setState(() {
         _dataBits = int.parse(selected);
         _hasChanges = true;
       });
+      await _sendUartConfig();
     });
   }
 
   void _showStopBitsPicker() {
-    _showOptionsPicker('停止位', _stopBitsList, '$_stopBits', (selected) {
+    _showOptionsPicker('停止位', _stopBitsList, '$_stopBits', (selected) async {
       setState(() {
         _stopBits = int.parse(selected);
         _hasChanges = true;
       });
+      await _sendUartConfig();
     });
   }
 
   void _showParityPicker() {
-    _showOptionsPicker('校验位', _parityList.map((p) => p['label'] as String).toList(), _getParityLabel(), (selected) {
+    _showOptionsPicker('校验位', _parityList.map((p) => p['label'] as String).toList(), _getParityLabel(), (selected) async {
       final item = _parityList.firstWhere((p) => p['label'] == selected);
       setState(() {
         _parity = item['value'] as int;
         _hasChanges = true;
       });
+      await _sendUartConfig();
     });
   }
 
-  void _showOptionsPicker(String title, List<String> options, String currentValue, Function(String) onChanged) {
+  void _showOptionsPicker(String title, List<String> options, String currentValue, Future<void> Function(String) onChanged) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -494,7 +550,7 @@ class _ChildSettingsPageState extends State<ChildSettingsPage> {
                           child: _DialogButton(
                             label: '保存',
                             isPrimary: true,
-                            onPressed: () {
+                            onPressed: () async {
                               final value = int.tryParse(addrController.text);
                               if (value != null && value >= 1 && value <= 255) {
                                 setState(() {
@@ -504,6 +560,7 @@ class _ChildSettingsPageState extends State<ChildSettingsPage> {
                                 });
                               }
                               Navigator.pop(context);
+                              await _sendModbusConfig();
                             },
                           ),
                         ),

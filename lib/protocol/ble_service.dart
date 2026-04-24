@@ -435,7 +435,9 @@ class BleService {
     _pendingRequests[seq] = completer;
 
     // 记录发送的日志
-    final cmd = frame.length > 4 ? frame[4] : 0;
+    // 帧格式: AA 55 CMD SEQ LEN_L LEN_H [BODY...] CRC_L CRC_H
+    // 索引:    0   1   2    3    4     5     6...   N-2  N-1
+    final cmd = frame.length > 2 ? frame[2] : 0;
     final hexStr = frame.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(' ');
     debugPrint('[BLE发送] CMD=0x${cmd.toRadixString(16)}, SEQ=$seq, 数据: $hexStr');
     
@@ -451,6 +453,9 @@ class BleService {
     try {
       // 发送帧 (设备只支持不带响应的写入)
       await _writeChar!.write(frame, withoutResponse: true);
+      
+      // 添加等待确认日志
+      _addReceiveLog('⏳ 等待响应中... (SEQ=$seq, 超时${_responseTimeout.inSeconds}秒)', true);
       debugPrint('[BLE发送] 发送成功! 等待响应...');
 
       // 等待响应
@@ -512,36 +517,60 @@ class BleService {
 
   /// 处理接收到的数据
   void _onDataReceived(List<int> data) {
+    // 调试面板日志：确认收到原始数据
+    final hexStr = data.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(' ');
+    _addReceiveLog('📥 BLE收到原始数据 ($data.length 字节): $hexStr', true);
+    
+    debugPrint('[BLE接收] 收到数据 (${data.length}字节): $hexStr');
+
+    // 检查帧头
+    if (data.length >= 2) {
+      final sof1 = data[0].toRadixString(16).padLeft(2, '0').toUpperCase();
+      final sof2 = data[1].toRadixString(16).padLeft(2, '0').toUpperCase();
+      if (sof1 == 'AA' && sof2 == '55') {
+        debugPrint('[BLE接收] ✅ 帧头正确 (AA 55)');
+      } else {
+        debugPrint('[BLE接收] ⚠️ 帧头错误: $sof1 $sof2 (期望: AA 55)');
+      }
+    }
+
     // 广播原始数据
     _responseController.add(data);
-
-    // 调试日志：打印原始接收数据
-    final hexStr = data.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(' ');
-    debugPrint('[BLE接收] 收到数据 (${data.length}字节): $hexStr');
 
     // 尝试解析帧
     final results = DtuFrame.parseStream(Uint8List.fromList(data));
 
     if (results.isEmpty) {
+      _addReceiveLog('⚠️ 无法解析为DTU帧，可能是其他协议数据', false);
       debugPrint('[BLE接收] 未找到有效帧! 数据可能是非DTU协议格式或帧头不匹配');
-      // 显示原始数据的前几个字节帮助分析
-      if (data.length >= 2) {
-        debugPrint('[BLE接收] 数据前2字节: 0x${data[0].toRadixString(16).padLeft(2, '0').toUpperCase()} 0x${data[1].toRadixString(16).padLeft(2, '0').toUpperCase()} (期望: AA 55)');
-      }
     }
 
     for (final result in results) {
       debugPrint('[BLE接收] 解析结果: isSuccess=${result.isSuccess}, cmd=0x${result.cmd?.toRadixString(16)}, seq=${result.seq}, error=${result.error}');
+      
       if (result.isSuccess && result.seq != null) {
         // 检查是否有等待此 SEQ 的请求
         final completer = _pendingRequests.remove(result.seq);
         if (completer != null && !completer.isCompleted) {
           completer.complete(result);
+          debugPrint('[BLE接收] ✅ 匹配到等待的请求 SEQ=${result.seq}，完成等待');
         } else {
-          debugPrint('[BLE接收] 未找到匹配的待处理请求 seq=${result.seq}, 当前等待的SEQ: ${_pendingRequests.keys.toList()}');
+          debugPrint('[BLE接收] ⚠️ 未找到匹配的待处理请求 seq=${result.seq}, 当前等待: ${_pendingRequests.keys.toList()}');
         }
       }
     }
+  }
+
+  /// 添加接收日志到调试面板
+  void _addReceiveLog(String message, bool isSuccess) {
+    DebugLogService().addLog(DebugLogEntry(
+      timestamp: DateTime.now(),
+      direction: '📥',
+      cmdName: 'BLE接收',
+      description: message,
+      data: Uint8List(0),
+      error: isSuccess ? null : message,
+    ));
   }
 
   /// 发送请求帧（不等待响应）

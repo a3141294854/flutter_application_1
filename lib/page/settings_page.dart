@@ -518,36 +518,141 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
+  /// 实时发送串口配置到设备
+  Future<void> _sendUartConfig() async {
+    if (!widget.isConnected) return;
+    if (_isLoading) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final config = UartConfig(
+        baudLevel: _baudLevel,
+        parity: _parity,
+        stopBits: _stopBits,
+        dataBits: _dataBits,
+      );
+      await _service.writeUartConfig(config);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('串口配置已同步'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('串口配置失败: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// 实时发送功率配置到设备
+  Future<void> _sendPowerConfig() async {
+    if (!widget.isConnected) return;
+    if (_isLoading) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      await _service.writePower(PowerConfig(power: _power));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('功率配置已同步'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('功率配置失败: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// 实时发送Modbus配置到设备
+  Future<void> _sendModbusConfig() async {
+    if (!widget.isConnected) return;
+    if (_isLoading) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final config = ModbusConfig(
+        items: List.generate(
+          8,
+          (i) => ModbusItem(addr: _modbusAddresses[i], devType: _modbusDeviceTypes[i]),
+        ),
+      );
+      await _service.writeModbusConfig(config);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Modbus配置已同步'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Modbus配置失败: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   void _showBaudRatePicker() {
     _showOptionsPicker(
       '波特率',
       _baudRates.map((b) => b['label'] as String).toList(),
       _getBaudRateLabel(),
-      (selected) {
+      (selected) async {
         final item = _baudRates.firstWhere((b) => b['label'] == selected);
         setState(() {
           _baudLevel = item['value'] as int;
           _hasChanges = true;
         });
+        await _sendUartConfig(); // 实时发送
       },
     );
   }
 
   void _showDataBitsPicker() {
-    _showOptionsPicker('数据位', _dataBitsList, '$_dataBits', (selected) {
+    _showOptionsPicker('数据位', _dataBitsList, '$_dataBits', (selected) async {
       setState(() {
         _dataBits = int.parse(selected);
         _hasChanges = true;
       });
+      await _sendUartConfig(); // 实时发送
     });
   }
 
   void _showStopBitsPicker() {
-    _showOptionsPicker('停止位', _stopBitsList, '$_stopBits', (selected) {
+    _showOptionsPicker('停止位', _stopBitsList, '$_stopBits', (selected) async {
       setState(() {
         _stopBits = int.parse(selected);
         _hasChanges = true;
       });
+      await _sendUartConfig(); // 实时发送
     });
   }
 
@@ -556,22 +661,24 @@ class _SettingsPageState extends State<SettingsPage> {
       '校验位',
       _parityList.map((p) => p['label'] as String).toList(),
       _getParityLabel(),
-      (selected) {
+      (selected) async {
         final item = _parityList.firstWhere((p) => p['label'] == selected);
         setState(() {
           _parity = item['value'] as int;
           _hasChanges = true;
         });
+        await _sendUartConfig(); // 实时发送
       },
     );
   }
 
   void _showPowerPicker() {
-    _showOptionsPicker('发射功率', _slePowerList, '$_power', (selected) {
+    _showOptionsPicker('发射功率', _slePowerList, '$_power', (selected) async {
       setState(() {
         _power = int.parse(selected);
         _hasChanges = true;
       });
+      await _sendPowerConfig(); // 实时发送
     });
   }
 
@@ -690,7 +797,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           child: _DialogButton(
                             label: '保存',
                             isPrimary: true,
-                            onPressed: () {
+                            onPressed: () async {
                               final value = int.tryParse(addrController.text);
                               if (value != null && value >= 1 && value <= 255) {
                                 setState(() {
@@ -700,6 +807,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 });
                               }
                               Navigator.pop(context);
+                              await _sendModbusConfig(); // 实时发送
                             },
                           ),
                         ),
@@ -715,7 +823,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  void _showOptionsPicker(String title, List<String> options, String currentValue, Function(String) onChanged) {
+  void _showOptionsPicker(String title, List<String> options, String currentValue, Future<void> Function(String) onChanged) {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,

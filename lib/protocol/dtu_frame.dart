@@ -1,6 +1,7 @@
 /// DTU 配置协议 - 帧封装与解析
 /// 实现帧格式: SOF(2) + CMD(1) + SEQ(1) + LEN(2) + BODY(N) + CRC16(2)
 
+import 'package:flutter/foundation.dart';
 import 'dart:typed_data';
 import 'dtu_protocol.dart';
 
@@ -23,17 +24,17 @@ class DtuFrame {
   // ========== 帧构建 ==========
 
   /// 构建请求帧
+  /// 帧格式: SOF(2) + CMD(1) + SEQ(1) + LEN(2) + BODY(N) + CRC16(2)
   static Uint8List buildFrame(int cmd, {List<int>? body}) {
     body ??= [];
     final bodyBytes = Uint8List.fromList(body);
+    final bodyLen = bodyBytes.length;
 
-    // LEN = CMD(1) + SEQ(1) + LEN(2) + BODY(N)
-    final payloadLen = 1 + 1 + 2 + bodyBytes.length;
+    // 创建帧缓冲区
+    // 总长度 = SOF(2) + CMD(1) + SEQ(1) + LEN(2) + BODY(N) + CRC(2)
+    final frame = ByteData(2 + 1 + 1 + 2 + bodyLen + 2);
 
-    // 创建帧缓冲区: SOF(2) + payload
-    final frame = ByteData(2 + payloadLen + 2); // +2 for CRC16
-
-    // SOF (大端)
+    // SOF (大端) = 0xAA55
     frame.setUint16(0, DtuProtocol.SOF, Endian.big);
 
     // CMD
@@ -42,20 +43,20 @@ class DtuFrame {
     // SEQ
     frame.setUint8(3, nextSeq());
 
-    // LEN (小端)
-    frame.setUint16(4, bodyBytes.length, Endian.little);
+    // LEN (小端) = BODY 长度
+    frame.setUint16(4, bodyLen, Endian.little);
 
     // BODY
-    for (int i = 0; i < bodyBytes.length; i++) {
+    for (int i = 0; i < bodyLen; i++) {
       frame.setUint8(6 + i, bodyBytes[i]);
     }
 
-    // 计算 CRC16 (覆盖 CMD + SEQ + LEN + BODY)
-    final crcData = Uint8List.view(frame.buffer, 2, payloadLen);
+    // CRC16 覆盖: CMD + SEQ + LEN(2) + BODY (不含SOF)
+    final crcData = Uint8List.view(frame.buffer, 2, 1 + 1 + 2 + bodyLen);
     final crc = crc16Modbus(crcData);
 
     // CRC16 (小端)
-    frame.setUint16(2 + payloadLen, crc, Endian.little);
+    frame.setUint16(6 + bodyLen, crc, Endian.little);
 
     return frame.buffer.asUint8List();
   }
@@ -254,13 +255,22 @@ class DtuFrame {
     final crcData = Uint8List.view(data.buffer, data.offsetInBytes + 2, 4 + len);
     final calculatedCrc = crc16Modbus(crcData);
 
+    debugPrint('[DtuFrame] CRC 验证:');
+    debugPrint('  - CRC 数据范围: offset=${data.offsetInBytes + 2}, len=${4 + len}');
+    debugPrint('  - CRC 数据: ${bytesToHex(Uint8List.fromList(crcData))}');
+    debugPrint('  - 收到 CRC: 0x${receivedCrc.toRadixString(16).padLeft(4, '0').toUpperCase()}');
+    debugPrint('  - 计算 CRC: 0x${calculatedCrc.toRadixString(16).padLeft(4, '0').toUpperCase()}');
+
     if (receivedCrc != calculatedCrc) {
+      debugPrint('[DtuFrame] ❌ CRC 校验失败!');
       return ParseResult.error(
         'CRC 校验失败: 收到 0x${receivedCrc.toRadixString(16).padLeft(4, '0')}, '
         '计算 0x${calculatedCrc.toRadixString(16).padLeft(4, '0')}',
         status: DtuProtocol.STATUS_CRC_ERROR,
       );
     }
+
+    debugPrint('[DtuFrame] ✅ CRC 校验通过!');
 
     return ParseResult.success(cmd: cmd, seq: seq, body: body);
   }
@@ -271,27 +281,40 @@ class DtuFrame {
     final results = <ParseResult>[];
     int offset = 0;
 
+    // 调试日志：显示收到的原始数据
+    debugPrint('[DtuFrame] parseStream 收到 ${data.length} 字节: ${bytesToHex(data)}');
+
     while (offset < data.length - 6) {
-      // 查找 SOF
+      // 查找 SOF (0xAA55)
       int sofIndex = -1;
       for (int i = offset; i < data.length - 1; i++) {
-        if (data[i] == 0x55 && data[i + 1] == 0xAA) {
+        if (data[i] == 0xAA && data[i + 1] == 0x55) {
           sofIndex = i;
           break;
         }
       }
 
-      if (sofIndex == -1) break;
+      if (sofIndex == -1) {
+        debugPrint('[DtuFrame] 未找到 SOF (0xAA55)，退出搜索');
+        break;
+      }
+
+      debugPrint('[DtuFrame] 找到 SOF at index=$sofIndex');
 
       // 尝试解析从 SOF 开始的帧
       final remaining = data.length - sofIndex;
-      if (remaining < 7) break;
+      if (remaining < 7) {
+        debugPrint('[DtuFrame] 数据不足 (remaining=$remaining < 7)');
+        break;
+      }
 
       final frameData = Uint8List.view(data.buffer, data.offsetInBytes + sofIndex);
 
       // 尝试获取 LEN
       final len = frameData[4] | (frameData[5] << 8); // 小端
       final minFrameLen = 8 + len; // 2(SOF) + 1(CMD) + 1(SEQ) + 2(LEN) + N(BODY) + 2(CRC)
+
+      debugPrint('[DtuFrame] LEN=$len, minFrameLen=$minFrameLen, remaining=$remaining');
 
       if (remaining < minFrameLen) {
         offset = sofIndex + 1;
@@ -302,15 +325,22 @@ class DtuFrame {
       final completeFrame = Uint8List(minFrameLen);
       completeFrame.setRange(0, minFrameLen, frameData);
 
+      debugPrint('[DtuFrame] 完整帧: ${bytesToHex(completeFrame)}');
+
       final result = parseFrame(completeFrame);
+      debugPrint('[DtuFrame] parseFrame 结果: isSuccess=${result.isSuccess}, error=${result.error}');
+
       if (result.isSuccess) {
         results.add(result);
         offset = sofIndex + minFrameLen;
+        debugPrint('[DtuFrame] 帧解析成功! offset 移动到 $offset');
       } else {
         offset = sofIndex + 1;
+        debugPrint('[DtuFrame] 帧解析失败，offset 移动到 $offset');
       }
     }
 
+    debugPrint('[DtuFrame] parseStream 完成，找到 ${results.length} 个有效帧');
     return results;
   }
 

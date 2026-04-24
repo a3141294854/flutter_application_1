@@ -737,7 +737,9 @@ class BleService {
   }
 
   /// 添加完整的白名单条目（包含串口参数和 Modbus 配置）
+  /// BODY: MAC(6) + name_len(1) + name + 波特率(1) + 数据位(1) + 停止位(1) + 校验位(1) + 从站个数(1) + (addr+dev_type)×N
   Future<void> addWhiteListItemFull(WhiteListItem item) async {
+    final modbusBytes = item.modbusItems.expand((e) => [e.addr, e.devType]).toList();
     await _checkStatus(DtuFrame.buildSetWhiteListFull(
       mac: item.mac,
       name: item.name,
@@ -745,19 +747,21 @@ class BleService {
       dataBits: item.dataBits,
       stopBits: item.stopBits,
       parity: item.parity,
-      modbusAddresses: item.modbusAddresses,
+      modbusAddresses: modbusBytes,
     ));
   }
 
   /// 设置子节点配置（Tag 0x08）
+  /// BODY: MAC(6) + 波特率(1) + 数据位(1) + 停止位(1) + 校验位(1) + 从站个数(1) + (addr+dev_type)×N
   Future<void> setChildNodeConfig(WhiteListItem item) async {
+    final modbusItems = item.modbusItems.map((item) => {'addr': item.addr, 'dev_type': item.devType}).toList();
     await _checkStatus(DtuFrame.buildSetChildNodeConfig(
       mac: item.mac,
       baudLevel: item.baudLevel,
       dataBits: item.dataBits,
       stopBits: item.stopBits,
       parity: item.parity,
-      modbusAddresses: item.modbusAddresses,
+      modbusItems: modbusItems,
     ));
   }
 

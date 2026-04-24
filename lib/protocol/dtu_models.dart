@@ -203,7 +203,7 @@ class WhiteListItem {
   final int stopBits;
   final int parity;
   // Modbus 配置
-  final List<int> modbusAddresses;
+  final List<ModbusItem> modbusItems;
 
   WhiteListItem({
     required this.mac,
@@ -212,8 +212,11 @@ class WhiteListItem {
     this.dataBits = 0x08,
     this.stopBits = 0x01,
     this.parity = DtuProtocol.PARITY_NONE,
-    List<int>? modbusAddresses,
-  }) : modbusAddresses = modbusAddresses ?? [1, 2, 3, 4, 5, 6, 7, 8];
+    List<ModbusItem>? modbusItems,
+  }) : modbusItems = modbusItems ?? List.generate(8, (i) => ModbusItem(addr: i + 1, devType: 0x05));
+
+  /// 获取地址列表（兼容用）
+  List<int> get modbusAddresses => modbusItems.map((e) => e.addr).toList();
 
   /// 从字节解析（Tag 0x07 格式：MAC + name_len + name）
   factory WhiteListItem.fromTag07(List<int> bytes) {
@@ -229,9 +232,9 @@ class WhiteListItem {
   }
 
   /// 从字节解析（Tag 0x08 格式：MAC + uart + modbus）
-  /// 8字节MAC + 1字节波特率 + 1字节数据位 + 1字节停止位 + 1字节校验位 + 1字节modbus个数 + N字节地址
+  /// BODY: MAC(6) + 波特率(1) + 数据位(1) + 停止位(1) + 校验位(1) + 从站个数(1) + (addr+dev_type)×N
   factory WhiteListItem.fromTag08(List<int> bytes) {
-    if (bytes.length < 13) {
+    if (bytes.length < 11) {
       throw FormatException('子节点配置数据长度不足: ${bytes.length}');
     }
 
@@ -241,7 +244,14 @@ class WhiteListItem {
     final stopBits = bytes[8];
     final parity = bytes[9];
     final modbusCount = bytes[10];
-    final modbusAddresses = bytes.sublist(11, 11 + modbusCount);
+
+    // 解析 (addr + dev_type) 对
+    final items = <ModbusItem>[];
+    int offset = 11;
+    while (offset + 1 < bytes.length && items.length < modbusCount) {
+      items.add(ModbusItem(addr: bytes[offset], devType: bytes[offset + 1]));
+      offset += 2;
+    }
 
     return WhiteListItem(
       mac: mac,
@@ -250,7 +260,7 @@ class WhiteListItem {
       dataBits: dataBits,
       stopBits: stopBits,
       parity: parity,
-      modbusAddresses: modbusAddresses,
+      modbusItems: items,
     );
   }
 
@@ -261,7 +271,7 @@ class WhiteListItem {
     int? dataBits,
     int? stopBits,
     int? parity,
-    List<int>? modbusAddresses,
+    List<ModbusItem>? modbusItems,
   }) {
     return WhiteListItem(
       mac: mac,
@@ -270,7 +280,7 @@ class WhiteListItem {
       dataBits: dataBits ?? this.dataBits,
       stopBits: stopBits ?? this.stopBits,
       parity: parity ?? this.parity,
-      modbusAddresses: modbusAddresses ?? this.modbusAddresses,
+      modbusItems: modbusItems ?? this.modbusItems,
     );
   }
 
@@ -279,15 +289,16 @@ class WhiteListItem {
 
   /// 获取 Modbus 地址列表字符串
   String get modbusStr {
-    if (modbusAddresses.isEmpty) return '无';
-    return modbusAddresses.map((a) => a.toString()).join(', ');
+    if (modbusItems.isEmpty) return '无';
+    return modbusItems.map((e) => '${e.addr}').join(', ');
   }
 
   /// 字节长度（Tag 0x07）
   int get tag07ByteLength => 6 + 1 + name.length;
 
   /// 字节长度（Tag 0x08）
-  int get tag08ByteLength => 6 + 4 + 1 + modbusAddresses.length;
+  /// BODY: MAC(6) + 波特率(1) + 数据位(1) + 停止位(1) + 校验位(1) + 从站个数(1) + (addr+dev_type)×N
+  int get tag08ByteLength => 6 + 4 + 1 + modbusItems.length * 2;
 
   @override
   String toString() =>

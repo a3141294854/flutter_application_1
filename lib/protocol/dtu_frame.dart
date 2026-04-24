@@ -137,16 +137,17 @@ class DtuFrame {
   }
 
   /// 构建设置子节点配置请求（Tag 0x08）
-  /// 8字节MAC + 1字节波特率 + 1字节数据位 + 1字节停止位 + 1字节校验位 + 1字节modbus个数 + N字节地址
+  /// BODY: MAC(6) + 波特率(1) + 数据位(1) + 停止位(1) + 校验位(1) + 从站个数(1) + (addr+dev_type)×N
   static Uint8List buildSetChildNodeConfig({
     required String mac,
     required int baudLevel,
     required int dataBits,
     required int stopBits,
     required int parity,
-    required List<int> modbusAddresses,
+    required List<Map<String, int>> modbusItems,
   }) {
     final macBytes = _parseMac(mac);
+    final modbusBytes = modbusItems.expand((item) => [item['addr'] ?? 0, item['dev_type'] ?? 0]).toList();
     return buildFrame(
       DtuProtocol.CMD_SET_CHILD_NODE_CFG,
       body: [
@@ -155,8 +156,8 @@ class DtuFrame {
         dataBits,
         stopBits,
         parity,
-        modbusAddresses.length,
-        ...modbusAddresses,
+        modbusItems.length,
+        ...modbusBytes,
       ],
     );
   }

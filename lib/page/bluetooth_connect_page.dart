@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import '../widget/qr_scanner_dialog.dart';
 
 // TODO [DEV ONLY]: 上线时删除此类
 class _DevSkipButton extends StatelessWidget {
@@ -161,7 +162,75 @@ class _BluetoothConnectPageState extends State<BluetoothConnectPage> {
     });
   }
 
-  Future<void> _connectToDevice(BluetoothDevice device) async {
+  /// 通过二维码扫描连接设备
+  Future<void> _scanQrAndConnect() async {
+    if (_adapterState != BluetoothAdapterState.on) {
+      _showError('请先开启蓝牙');
+      return;
+    }
+
+    final result = await showDialog<(String name, String mac)>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const QrScannerDialog(),
+    );
+
+    if (result == null) return;
+
+    final (name, mac) = result;
+    
+    // 显示正在尝试连接
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Text('正在连接 $name ($mac)...'),
+            ],
+          ),
+          backgroundColor: const Color(0xFF4A90D9),
+          duration: const Duration(seconds: 10),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+
+    // 搜索匹配 MAC 地址的设备
+    await FlutterBluePlus.startScan(
+      timeout: const Duration(seconds: 10),
+      withServices: [], // 不过滤服务
+    );
+
+    BluetoothDevice? targetDevice;
+    await for (final results in FlutterBluePlus.scanResults) {
+      for (final result in results) {
+        if (result.device.remoteId.str.toUpperCase().replaceAll('-', ':') == mac ||
+            result.device.remoteId.str.toUpperCase() == mac) {
+          targetDevice = result.device;
+          await FlutterBluePlus.stopScan();
+          break;
+        }
+      }
+      if (targetDevice != null) break;
+    }
+
+    if (targetDevice != null) {
+      await _connectToDevice(targetDevice, deviceName: name);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        _showError('未找到设备 $name，请确保设备在范围内且蓝牙已开启');
+      }
+    }
+  }
+
+  Future<void> _connectToDevice(BluetoothDevice device, {String? deviceName}) async {
     setState(() {
       _connectingDevice = device;
     });
@@ -170,7 +239,7 @@ class _BluetoothConnectPageState extends State<BluetoothConnectPage> {
       await device.connect(timeout: const Duration(seconds: 15));
       
       if (mounted) {
-        _showSuccess(device);
+        _showSuccess(device, overrideName: deviceName);
       }
     } on Exception catch (e) {
       if (mounted) {
@@ -215,10 +284,10 @@ class _BluetoothConnectPageState extends State<BluetoothConnectPage> {
     );
   }
 
-  void _showSuccess(BluetoothDevice device) {
-    final deviceName = device.platformName.isNotEmpty 
+  void _showSuccess(BluetoothDevice device, {String? overrideName}) {
+    final deviceName = overrideName ?? (device.platformName.isNotEmpty 
         ? device.platformName 
-        : '设备';
+        : '设备');
     
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -255,13 +324,17 @@ class _BluetoothConnectPageState extends State<BluetoothConnectPage> {
   Widget _buildBluetoothButton() {
     return Stack(
       children: [
-        GestureDetector(
-          onTap: _startScan,
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
+        Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // 二维码扫描入口
+              _buildQrScanButton(),
+              const SizedBox(height: 24),
+              // 蓝牙扫描入口
+              GestureDetector(
+                onTap: _startScan,
+                child: Container(
                   width: 180,
                   height: 180,
                   decoration: BoxDecoration(
@@ -285,17 +358,17 @@ class _BluetoothConnectPageState extends State<BluetoothConnectPage> {
                     color: Color(0xFF4A90D9),
                   ),
                 ),
-                const SizedBox(height: 24),
-                const Text(
-                  '点击连接蓝牙设备',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2D4A6F),
-                  ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                '点击连接蓝牙设备',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2D4A6F),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
         // TODO [DEV ONLY]: 上线时删除此按钮
@@ -311,6 +384,50 @@ class _BluetoothConnectPageState extends State<BluetoothConnectPage> {
   // TODO [DEV ONLY]: 上线时删除此方法
   void _skipToConnected() {
     widget.onDevSkip?.call();
+  }
+
+  /// 构建二维码扫描按钮
+  Widget _buildQrScanButton() {
+    return GestureDetector(
+      onTap: _scanQrAndConnect,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4A90D9).withValues(alpha: 0.1),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: Border.all(
+            color: const Color(0xFF4A90D9).withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.qr_code_scanner,
+              size: 20,
+              color: Color(0xFF4A90D9),
+            ),
+            SizedBox(width: 10),
+            Text(
+              '扫码连接',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF2D4A6F),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildDeviceListView() {

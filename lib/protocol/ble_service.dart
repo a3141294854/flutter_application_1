@@ -199,13 +199,14 @@ class BleService {
         onTimeout: () {
           _pendingRequests.remove(seq);
           // 记录超时的日志
-          DebugLogEntry(
+          final timeoutEntry = DebugLogEntry(
             timestamp: DateTime.now(),
             direction: '接收',
             cmdName: '超时',
             data: Uint8List(0),
             error: '响应超时',
           );
+          DebugLogService().addLog(timeoutEntry);
           return ParseResult.error('响应超时');
         },
       );
@@ -213,33 +214,36 @@ class BleService {
       // 记录接收的日志
       if (result.isSuccess && result.body != null) {
         final respCmd = result.body!.length > 4 ? result.body![4] : 0;
-        DebugLogEntry(
+        final recvEntry = DebugLogEntry(
           timestamp: DateTime.now(),
           direction: '接收',
           cmdName: DebugLogService.getCmdName(respCmd),
           data: result.body!,
         );
+        DebugLogService().addLog(recvEntry);
       } else if (!result.isSuccess) {
-        DebugLogEntry(
+        final errorEntry = DebugLogEntry(
           timestamp: DateTime.now(),
           direction: '接收',
           cmdName: '错误',
           data: Uint8List(0),
           error: result.error,
         );
+        DebugLogService().addLog(errorEntry);
       }
 
       return result;
     } catch (e) {
       _pendingRequests.remove(seq);
       // 记录错误的日志
-      DebugLogEntry(
+      final errorEntry = DebugLogEntry(
         timestamp: DateTime.now(),
         direction: '接收',
         cmdName: '错误',
         data: Uint8List(0),
         error: '发送失败: $e',
       );
+      DebugLogService().addLog(errorEntry);
       return ParseResult.error('发送失败: $e');
     }
   }

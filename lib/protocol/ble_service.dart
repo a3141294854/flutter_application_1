@@ -64,24 +64,37 @@ class DebugLogService {
   /// 获取命令名称
   static String getCmdName(int cmd) {
     switch (cmd) {
-      case 0x01: return '读取设备信息';
-      case 0x02: return '设置设备角色';
-      case 0x03: return '读取串口配置';
-      case 0x04: return '设置串口配置';
-      case 0x05: return '读取Modbus配置';
-      case 0x06: return '设置Modbus配置';
-      case 0x07: return '添加白名单';
-      case 0x08: return '设置子节点配置';
-      case 0x09: return '读取功率';
-      case 0x10: return '设置功率';
-      case 0x11: return '读取白名单';
-      case 0x12: return '删除白名单';
-      case 0x13: return '读取子节点配置';
-      case 0x16: return '清空白名单';
-      case 0x17: return '批量设置白名单';
-      case 0x20: return '提交保存';
-      case 0xFE: return '重启设备';
-      case 0xFF: return '恢复出厂';
+      case 0x01: return 'READ_DEV_INFO';      // 读取设备信息
+      case 0x02: return 'READ_UART_CFG';     // 读取串口配置
+      case 0x03: return 'READ_MODBUS_CFG';   // 读取Modbus配置
+      case 0x04: return 'READ_ROOT_WL_ALL';   // 读取ROOT白名单
+      case 0x05: return 'READ_ROOT_POWER';   // 读取ROOT功率
+      case 0x06: return 'GET_MODE_STATUS';    // 获取模式状态
+      case 0x10: return 'SET_ROLE';           // 设置角色
+      case 0x11: return 'SET_UART_CFG';       // 设置串口配置
+      case 0x12: return 'SET_MODBUS_CFG';     // 设置Modbus配置
+      case 0x13: return 'SET_ROOT_POWER';    // 设置ROOT功率
+      case 0x14: return 'ADD_WL_ITEM';        // 添加白名单
+      case 0x15: return 'DEL_WL_ITEM';        // 删除白名单
+      case 0x16: return 'CLEAR_WL';           // 清空白名单
+      case 0x17: return 'SET_CHILD_NODE_CFG'; // 设置子节点配置
+      case 0x18: return 'SET_WHITE_LIST_FULL';// 批量设置白名单
+      case 0x20: return 'COMMIT';             // 提交保存
+      case 0x21: return 'REBOOT';             // 重启设备
+      case 0x22: return 'FACTORY_RESET';      // 恢复出厂
+      case 0x81: return 'READ_DEV_INFO_RSP';
+      case 0x82: return 'READ_UART_CFG_RSP';
+      case 0x83: return 'READ_MODBUS_CFG_RSP';
+      case 0x84: return 'READ_ROOT_WL_ALL_RSP';
+      case 0x85: return 'READ_ROOT_POWER_RSP';
+      case 0x86: return 'GET_MODE_STATUS_RSP';
+      case 0x90: return 'SET_ROLE_RSP';
+      case 0x91: return 'SET_UART_CFG_RSP';
+      case 0x92: return 'SET_MODBUS_CFG_RSP';
+      case 0x93: return 'SET_ROOT_POWER_RSP';
+      case 0xA0: return 'COMMIT_RSP';
+      case 0xA1: return 'REBOOT_RSP';
+      case 0xA2: return 'FACTORY_RESET_RSP';
       default: return '0x${cmd.toRadixString(16).toUpperCase()}';
     }
   }
@@ -344,6 +357,15 @@ class BleService {
       throw FormatException('读取功率失败: ${result.error}');
     }
     return PowerConfig.fromBytes(result.body!);
+  }
+
+  /// 获取模式状态
+  Future<ModeStatus> readModeStatus() async {
+    final result = await sendAndWait(DtuFrame.buildGetModeStatus());
+    if (!result.isSuccess) {
+      throw FormatException('获取模式状态失败: ${result.error}');
+    }
+    return ModeStatus.fromBytes(result.body!);
   }
 
   // ========== 写入命令 ==========

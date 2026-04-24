@@ -340,6 +340,81 @@ class WhiteListResult {
       'WhiteListResult(frag: $fragIdx/$fragTotal, total: $wlTotal, items: $itemCount)';
 }
 
+/// 模式状态
+class ModeStatus {
+  final int currentMode;
+  final int role;
+  final int baudLevel;
+  final int parity;
+  final int stopBits;
+  final int dataBits;
+  final int modeSource;
+  final int rxProfile;
+  final int rebootPending;
+
+  ModeStatus({
+    required this.currentMode,
+    required this.role,
+    required this.baudLevel,
+    required this.parity,
+    required this.stopBits,
+    required this.dataBits,
+    required this.modeSource,
+    required this.rxProfile,
+    required this.rebootPending,
+  });
+
+  /// 从响应 BODY 解析
+  factory ModeStatus.fromBytes(Uint8List body) {
+    if (body.length < 9) {
+      throw FormatException('模式状态数据长度不足: ${body.length}');
+    }
+
+    final status = body[0];
+    if (status != DtuProtocol.STATUS_SUCCESS) {
+      throw FormatException('获取模式状态失败: ${DtuProtocol.getStatusName(status)}');
+    }
+
+    return ModeStatus(
+      currentMode: body[1],
+      role: body[2],
+      baudLevel: body[3],
+      parity: body[4],
+      stopBits: body[5],
+      dataBits: body[6],
+      modeSource: body[7],
+      rxProfile: body[8],
+      rebootPending: body[9],
+    );
+  }
+
+  /// 模式名称
+  String get modeName => currentMode == 0x01 ? 'CONFIG' : 'RUN';
+
+  /// 角色名称
+  String get roleName => DtuProtocol.getRoleName(role);
+
+  /// 波特率
+  int get baudRate => DtuProtocol.getBaudRate(baudLevel);
+
+  /// 校验名称
+  String get parityName => DtuProtocol.getParityName(parity);
+
+  /// 模式来源名称
+  String get modeSourceName {
+    switch (modeSource) {
+      case 0x01: return 'GPIO拨码';
+      case 0x02: return 'NV存储';
+      case 0x03: return '默认';
+      default: return '未知';
+    }
+  }
+
+  @override
+  String toString() =>
+      'ModeStatus(mode: $modeName, role: $roleName, baud: $baudRate, source: $modeSourceName)';
+}
+
 /// 功率配置
 class PowerConfig {
   final int power;

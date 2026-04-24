@@ -85,6 +85,11 @@ class DtuFrame {
     return buildFrame(DtuProtocol.CMD_READ_ROOT_POWER);
   }
 
+  /// 构建获取模式状态请求
+  static Uint8List buildGetModeStatus() {
+    return buildFrame(DtuProtocol.CMD_GET_MODE_STATUS);
+  }
+
   /// 构建角色设置请求
   static Uint8List buildSetRole(int role) {
     return buildFrame(DtuProtocol.CMD_SET_ROLE, body: [role]);

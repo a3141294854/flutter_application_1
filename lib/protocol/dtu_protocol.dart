@@ -3,8 +3,8 @@
 
 class DtuProtocol {
   // ========== 帧格式常量 ==========
-  /// 固定帧头
-  static const int SOF = 0x55AA;
+  /// 固定帧头 (0xAA55)
+  static const int SOF = 0xAA55;
 
   // ========== 命令字 ==========
   /// 读取类命令
@@ -13,6 +13,7 @@ class DtuProtocol {
   static const int CMD_READ_MODBUS_CFG = 0x03;      // 读取 Modbus 预设
   static const int CMD_READ_ROOT_WL_ALL = 0x04;     // 读取 ROOT 白名单
   static const int CMD_READ_ROOT_POWER = 0x05;      // 读取 ROOT 功率
+  static const int CMD_GET_MODE_STATUS = 0x06;      // 获取模式状态
 
   /// 写入类命令
   static const int CMD_SET_ROLE = 0x10;             // 设置角色

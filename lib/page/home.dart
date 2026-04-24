@@ -120,24 +120,33 @@ class _HomePageState extends State<HomePage> {
                                     : const Color(0xFFFF9800),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    _nodeType == NodeType.root ? Icons.hub : Icons.device_hub,
-                                    color: Colors.white,
-                                    size: 12,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _roleName,
-                                    style: const TextStyle(
-                                      fontSize: 10,
+                              child: GestureDetector(
+                                onTap: widget.dtuService.isConnected ? _showRoleSwitchDialog : null,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      _nodeType == NodeType.root ? Icons.hub : Icons.device_hub,
                                       color: Colors.white,
-                                      fontWeight: FontWeight.bold,
+                                      size: 12,
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _roleName,
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 2),
+                                    const Icon(
+                                      Icons.swap_horiz,
+                                      color: Colors.white,
+                                      size: 12,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
@@ -269,6 +278,124 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _showRoleSwitchDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFFF0F7FF),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Row(
+          children: [
+            Icon(Icons.swap_horiz, color: Color(0xFF4A90D9), size: 24),
+            SizedBox(width: 8),
+            Text('切换角色', style: TextStyle(color: Color(0xFF2D4A6F), fontSize: 18)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '选择设备角色：',
+              style: TextStyle(color: Color(0xFF2D4A6F), fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            _RoleOption(
+              title: 'ROOT (根节点)',
+              subtitle: '可连接多个子节点',
+              icon: Icons.hub,
+              color: const Color(0xFF4CAF50),
+              isSelected: _nodeType == NodeType.root,
+              onTap: () => _switchRole(NodeType.root),
+            ),
+            const SizedBox(height: 12),
+            _RoleOption(
+              title: 'NODE (子节点)',
+              subtitle: '连接一个根节点',
+              icon: Icons.device_hub,
+              color: const Color(0xFFFF9800),
+              isSelected: _nodeType == NodeType.child,
+              onTap: () => _switchRole(NodeType.child),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _switchRole(NodeType targetRole) async {
+    Navigator.pop(context); // 关闭对话框
+
+    // 判断目标角色
+    final int targetRoleValue = targetRole == NodeType.root
+        ? DtuProtocol.ROLE_ROOT  // 0x01
+        : DtuProtocol.ROLE_NODE; // 0x00
+
+    final targetRoleName = targetRole == NodeType.root ? 'ROOT (根节点)' : 'NODE (子节点)';
+
+    // 显示加载对话框
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        backgroundColor: Color(0xFFF0F7FF),
+        content: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 16),
+            Text('正在切换角色...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      // 1. 设置角色
+      await widget.dtuService.writeAllConfig(role: targetRoleValue);
+
+      if (mounted) {
+        Navigator.pop(context); // 关闭加载对话框
+
+        // 更新本地状态并刷新 UI
+        Navigator.pop(context); // 关闭对话框
+
+        // 更新 DtuService 中的角色信息
+        widget.dtuService.updateRole(targetRoleValue);
+
+        // 强制重建 UI
+        setState(() {});
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('角色已切换为 $targetRoleName'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // 关闭加载对话框
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('切换失败: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _showDisconnectDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -291,6 +418,80 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RoleOption extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _RoleOption({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withValues(alpha: 0.1) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? color : const Color(0xFFE8F2FF),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? color : const Color(0xFF2D4A6F),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF7A9CC6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check_circle, color: color, size: 24),
+          ],
+        ),
       ),
     );
   }

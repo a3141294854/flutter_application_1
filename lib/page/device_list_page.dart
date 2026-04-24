@@ -63,7 +63,6 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
   late int _dataBits;
   late int _stopBits;
   late int _parity;
-  late List<TextEditingController> _modbusControllers;
 
   @override
   void initState() {
@@ -72,40 +71,14 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
     _dataBits = widget.device.dataBits;
     _stopBits = widget.device.stopBits;
     _parity = widget.device.parity;
-    _modbusControllers = List.generate(8, (i) {
-      final addr = i < widget.device.modbusAddresses.length 
-          ? widget.device.modbusAddresses[i] 
-          : i + 1;
-      return TextEditingController(text: addr.toString());
-    });
-  }
-
-  @override
-  void dispose() {
-    for (final controller in _modbusControllers) {
-      controller.dispose();
-    }
-    super.dispose();
   }
 
   void _submit() {
-    final modbusAddresses = <int>[];
-    for (final controller in _modbusControllers) {
-      final text = controller.text.trim();
-      if (text.isNotEmpty) {
-        final addr = int.tryParse(text);
-        if (addr != null && addr > 0 && addr <= 247) {
-          modbusAddresses.add(addr);
-        }
-      }
-    }
-
     final updatedDevice = widget.device.copyWithFull(
       baudLevel: _baudLevel,
       dataBits: _dataBits,
       stopBits: _stopBits,
       parity: _parity,
-      modbusAddresses: modbusAddresses,
     );
 
     widget.onConfigSaved(updatedDevice);
@@ -213,43 +186,25 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
                 ),
                 const SizedBox(height: 16),
 
-                // Modbus 配置
-                _buildSectionTitle('Modbus 从站地址', Icons.hub),
-                const SizedBox(height: 4),
-                Text('设置子设备挂载的 Modbus 从机地址', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-                const SizedBox(height: 12),
-
-                // Modbus 地址网格
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    childAspectRatio: 2,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
+                // 提示信息
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF3E0),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  itemCount: 8,
-                  itemBuilder: (context, index) {
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE8F2FF)),
-                      ),
-                      child: TextField(
-                        controller: _modbusControllers[index],
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 13),
-                        decoration: const InputDecoration(
-                          hintText: '1-247',
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: Color(0xFFFF9800), size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '白名单子设备仅支持串口配置，Modbus 参数由子设备自身决定',
+                          style: TextStyle(fontSize: 11, color: Colors.orange[800]),
                         ),
                       ),
-                    );
-                  },
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 20),
 

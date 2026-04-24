@@ -27,6 +27,19 @@ class DtuService {
   /// 是否为根节点
   bool get isRoot => _config.isRoot;
 
+  /// 更新设备角色（本地刷新，不发送命令）
+  void updateRole(int role) {
+    final currentInfo = _config.deviceInfo;
+    if (currentInfo != null) {
+      final updatedInfo = DeviceInfo(
+        role: role,
+        mac: currentInfo.mac,
+        name: currentInfo.name,
+      );
+      _config = _config.copyWith(deviceInfo: updatedInfo);
+    }
+  }
+
   /// 是否已连接
   bool get isConnected => _bleService.isConnected;
 

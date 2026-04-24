@@ -233,13 +233,17 @@ class DebugLogService {
   static String _getStatusDescription(int status) {
     switch (status) {
       case 0x00: return '(操作成功)';
-      case 0x01: return '(操作失败)';
-      case 0x02: return '(参数错误)';
-      case 0x03: return '(权限不足)';
-      case 0x04: return '(设备忙)';
-      case 0x05: return '(数据不存在)';
-      case 0x06: return '(空间不足)';
-      default: return '';
+      case 0x01: return '(CRC错误)';
+      case 0x02: return '(长度错误)';
+      case 0x03: return '(命令错误)';
+      case 0x04: return '(参数错误)';
+      case 0x05: return '(不在配置模式)';
+      case 0x06: return '(角色不匹配)';
+      case 0x07: return '(白名单已满)';
+      case 0x08: return '(未找到)';
+      case 0x09: return '(保存失败)';
+      case 0x0A: return '(设备忙)';
+      default: return '(未知状态:0x${status.toRadixString(16).toUpperCase()})';
     }
   }
 

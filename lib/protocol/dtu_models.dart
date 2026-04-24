@@ -134,25 +134,32 @@ class ModbusConfig {
 
   /// 从响应 BODY 解析
   factory ModbusConfig.fromBytes(Uint8List body) {
+    print('[ModbusConfig.fromBytes] body length: ${body.length}, data: ${body.map((b) => '0x${b.toRadixString(16).toUpperCase().padLeft(2, '0')}').join(' ')}');
+    
     if (body.length < 2) {
       throw FormatException('Modbus 配置数据长度不足: ${body.length}');
     }
 
     final status = body[0];
+    print('[ModbusConfig.fromBytes] status: 0x${status.toRadixString(16).toUpperCase()}');
     if (status != DtuProtocol.STATUS_SUCCESS) {
       throw FormatException('读取 Modbus 配置失败: ${DtuProtocol.getStatusName(status)}');
     }
 
     final itemCount = body[1];
+    print('[ModbusConfig.fromBytes] itemCount: $itemCount');
+    
     final items = <ModbusItem>[];
 
     for (int i = 0; i < itemCount; i++) {
       final offset = 2 + i * 2;
       if (offset + 2 <= body.length) {
         items.add(ModbusItem.fromBytes(body[offset], body[offset + 1]));
+        print('[ModbusConfig.fromBytes] item[$i]: addr=${body[offset]}, devType=${body[offset + 1]}');
       }
     }
 
+    print('[ModbusConfig.fromBytes] parsed ${items.length} items');
     return ModbusConfig(items: items);
   }
 

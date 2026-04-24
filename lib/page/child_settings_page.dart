@@ -27,7 +27,7 @@ class _ChildSettingsPageState extends State<ChildSettingsPage> {
 
   // Modbus 配置
   final List<int> _modbusAddresses = [1, 2, 3, 4, 5, 6, 7, 8];
-  final List<int> _modbusDeviceTypes = [0, 0, 0, 0, 0, 0, 0, 0];
+  final List<int> _modbusDeviceTypes = [5, 5, 5, 5, 5, 5, 5, 5]; // 5 = 保留 (DEV_TYPE_RESERVED)
 
   bool _isLoading = false;
   bool _hasChanges = false;
@@ -82,9 +82,15 @@ class _ChildSettingsPageState extends State<ChildSettingsPage> {
         }
 
         if (config.modbusConfig != null) {
-          for (int i = 0; i < config.modbusConfig!.items.length && i < 8; i++) {
-            _modbusAddresses[i] = config.modbusConfig!.items[i].addr;
-            _modbusDeviceTypes[i] = config.modbusConfig!.items[i].devType;
+          print('[DEBUG] Modbus config items count: ${config.modbusConfig!.items.length}');
+          if (config.modbusConfig!.items.isEmpty) {
+            print('[DEBUG] Modbus items is empty, using default values');
+          } else {
+            for (int i = 0; i < config.modbusConfig!.items.length && i < 8; i++) {
+              _modbusAddresses[i] = config.modbusConfig!.items[i].addr;
+              _modbusDeviceTypes[i] = config.modbusConfig!.items[i].devType;
+              print('[DEBUG] Modbus[$i]: addr=${_modbusAddresses[i]}, type=${_modbusDeviceTypes[i]}');
+            }
           }
         }
 
@@ -289,7 +295,7 @@ class _ChildSettingsPageState extends State<ChildSettingsPage> {
 
   Widget _buildModbusCard(int index) {
     final typeLabel = _getDeviceTypeLabel(_modbusDeviceTypes[index]);
-    final isReserved = _modbusDeviceTypes[index] == 0;
+    final isReserved = _modbusDeviceTypes[index] == DtuProtocol.DEV_TYPE_RESERVED;
 
     return GestureDetector(
       onTap: widget.isConnected ? () => _showAddressEditor(index) : null,
@@ -344,7 +350,7 @@ class _ChildSettingsPageState extends State<ChildSettingsPage> {
   void _resetModbusAddresses() {
     setState(() {
       _modbusAddresses.setAll(0, [1, 2, 3, 4, 5, 6, 7, 8]);
-      _modbusDeviceTypes.setAll(0, [0, 0, 0, 0, 0, 0, 0, 0]);
+      _modbusDeviceTypes.setAll(0, [5, 5, 5, 5, 5, 5, 5, 5]); // 5 = 保留
       _hasChanges = true;
     });
     _sendModbusConfig(); // 实时发送

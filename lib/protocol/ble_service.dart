@@ -11,19 +11,21 @@ import 'dtu_protocol.dart';
 /// 调试日志条目
 class DebugLogEntry {
   final DateTime timestamp;
-  final String direction; // "发送" 或 "接收"
-  final String cmdName; // 命令名称
+  final String direction; // "📤" 发送, "📥" 接收, "🔍" 调试
+  final String? cmdName; // 命令名称
   final String? description; // 报文详细描述
   final Uint8List data;
   final String? error;
+  final bool isDebug; // 是否为调试日志
 
   DebugLogEntry({
     required this.timestamp,
     required this.direction,
-    required this.cmdName,
-    required this.data,
+    this.cmdName,
     this.description,
+    required this.data,
     this.error,
+    this.isDebug = false,
   });
 
   String get hexString => data.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(' ');
@@ -68,6 +70,18 @@ class DebugLogService {
   /// 清空日志
   void clear() {
     _logs.clear();
+  }
+
+  /// 添加调试日志（显示在调试面板中）
+  void addDebugLog(String message) {
+    addLog(DebugLogEntry(
+      timestamp: DateTime.now(),
+      direction: '🔍',
+      cmdName: 'DEBUG',
+      description: message,
+      data: Uint8List(0),
+      isDebug: true,
+    ));
   }
 
   /// 获取命令名称
@@ -623,6 +637,11 @@ class BleService {
   /// 读取 Modbus 配置
   Future<ModbusConfig> readModbusConfig() async {
     final result = await sendAndWait(DtuFrame.buildReadModbusCfg());
+    DebugLogService().addDebugLog('[readModbusConfig] result.isSuccess: ${result.isSuccess}, error: ${result.error}');
+    if (result.body != null) {
+      DebugLogService().addDebugLog('[readModbusConfig] body length: ${result.body!.length}');
+      DebugLogService().addDebugLog('[readModbusConfig] body hex: ${result.body!.map((b) => '0x${b.toRadixString(16).toUpperCase().padLeft(2, '0')}').join(' ')}');
+    }
     if (!result.isSuccess) {
       throw FormatException('读取 Modbus 配置失败: ${result.error}');
     }

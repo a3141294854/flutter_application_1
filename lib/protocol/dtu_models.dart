@@ -4,6 +4,7 @@
 import 'dart:typed_data';
 import 'dtu_protocol.dart';
 import 'dtu_frame.dart';
+import 'ble_service.dart';
 
 /// 设备信息
 class DeviceInfo {
@@ -134,32 +135,43 @@ class ModbusConfig {
 
   /// 从响应 BODY 解析
   factory ModbusConfig.fromBytes(Uint8List body) {
-    print('[ModbusConfig.fromBytes] body length: ${body.length}, data: ${body.map((b) => '0x${b.toRadixString(16).toUpperCase().padLeft(2, '0')}').join(' ')}');
+    DebugLogService().addDebugLog('[ModbusConfig.fromBytes] body length: ${body.length}');
+    if (body.length >= 2) {
+      DebugLogService().addDebugLog('[ModbusConfig.fromBytes] first 2 bytes: [0x${body[0].toRadixString(16).toUpperCase()}, 0x${body[1].toRadixString(16).toUpperCase()}]');
+    }
+    if (body.length >= 6) {
+      DebugLogService().addDebugLog('[ModbusConfig.fromBytes] first 6 bytes: ${body.sublist(0, 6).map((b) => '0x${b.toRadixString(16).toUpperCase()}').join(', ')}');
+    }
     
     if (body.length < 2) {
       throw FormatException('Modbus 配置数据长度不足: ${body.length}');
     }
 
     final status = body[0];
-    print('[ModbusConfig.fromBytes] status: 0x${status.toRadixString(16).toUpperCase()}');
+    DebugLogService().addDebugLog('[ModbusConfig.fromBytes] status: 0x${status.toRadixString(16).toUpperCase()}');
     if (status != DtuProtocol.STATUS_SUCCESS) {
       throw FormatException('读取 Modbus 配置失败: ${DtuProtocol.getStatusName(status)}');
     }
 
     final itemCount = body[1];
-    print('[ModbusConfig.fromBytes] itemCount: $itemCount');
+    DebugLogService().addDebugLog('[ModbusConfig.fromBytes] itemCount from response: $itemCount');
     
     final items = <ModbusItem>[];
 
-    for (int i = 0; i < itemCount; i++) {
-      final offset = 2 + i * 2;
-      if (offset + 2 <= body.length) {
-        items.add(ModbusItem.fromBytes(body[offset], body[offset + 1]));
-        print('[ModbusConfig.fromBytes] item[$i]: addr=${body[offset]}, devType=${body[offset + 1]}');
-      }
+    // 解析所有 Modbus 预设项
+    // 预期格式: itemCount(1) + addr1(1) + devType1(1) + addr2(1) + devType2(1) + ...
+    int parsedItems = 0;
+    int offset = 2;
+    while (offset + 1 < body.length && parsedItems < itemCount) {
+      final addr = body[offset];
+      final devType = body[offset + 1];
+      items.add(ModbusItem(addr: addr, devType: devType));
+      DebugLogService().addDebugLog('[ModbusConfig.fromBytes] item[$parsedItems]: addr=$addr, devType=$devType (0x${devType.toRadixString(16).toUpperCase()})');
+      offset += 2;
+      parsedItems++;
     }
 
-    print('[ModbusConfig.fromBytes] parsed ${items.length} items');
+    DebugLogService().addDebugLog('[ModbusConfig.fromBytes] parsed ${items.length} items (expected: $itemCount)');
     return ModbusConfig(items: items);
   }
 

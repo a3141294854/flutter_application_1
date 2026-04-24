@@ -220,7 +220,7 @@ class _DebugPanelPageState extends State<DebugPanelPage> {
               // 命令名
               Expanded(
                 child: Text(
-                  entry.cmdName,
+                  entry.cmdName ?? '',
                   style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w500),
                   overflow: TextOverflow.ellipsis,
                 ),

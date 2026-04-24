@@ -63,6 +63,21 @@ class _ChildSettingsPageState extends State<ChildSettingsPage> {
   @override
   void initState() {
     super.initState();
+    // 连接后自动读取配置
+    if (widget.isConnected) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _readConfig();
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(ChildSettingsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 当连接状态从断开变为连接时，自动读取配置
+    if (!oldWidget.isConnected && widget.isConnected) {
+      _readConfig();
+    }
   }
 
   Future<void> _readConfig() async {
@@ -72,8 +87,10 @@ class _ChildSettingsPageState extends State<ChildSettingsPage> {
 
     try {
       final config = await _service.readAllConfig();
+      DebugLogService().addDebugLog('[child_settings] Got config, modbusConfig=${config.modbusConfig?.items.length ?? "null"}');
 
       setState(() {
+        DebugLogService().addDebugLog('[child_settings] Inside setState callback');
         if (config.uartConfig != null) {
           _baudLevel = config.uartConfig!.baudLevel;
           _dataBits = config.uartConfig!.dataBits;
@@ -81,20 +98,24 @@ class _ChildSettingsPageState extends State<ChildSettingsPage> {
           _stopBits = config.uartConfig!.stopBits;
         }
 
+        // 更新 Modbus 配置
+        DebugLogService().addDebugLog('[child_settings] modbusConfig is null: ${config.modbusConfig == null}');
         if (config.modbusConfig != null) {
-          print('[DEBUG] Modbus config items count: ${config.modbusConfig!.items.length}');
+          DebugLogService().addDebugLog('[child_settings] Modbus config items count: ${config.modbusConfig!.items.length}');
           if (config.modbusConfig!.items.isEmpty) {
-            print('[DEBUG] Modbus items is empty, using default values');
+            DebugLogService().addDebugLog('[child_settings] Modbus items is empty, using default values');
           } else {
             for (int i = 0; i < config.modbusConfig!.items.length && i < 8; i++) {
               _modbusAddresses[i] = config.modbusConfig!.items[i].addr;
               _modbusDeviceTypes[i] = config.modbusConfig!.items[i].devType;
-              print('[DEBUG] Modbus[$i]: addr=${_modbusAddresses[i]}, type=${_modbusDeviceTypes[i]}');
+              DebugLogService().addDebugLog('[child_settings] Modbus[$i]: addr=${_modbusAddresses[i]}, type=${_modbusDeviceTypes[i]}');
             }
           }
         }
+        DebugLogService().addDebugLog('[child_settings] After update: _modbusAddresses=$_modbusAddresses, _modbusDeviceTypes=$_modbusDeviceTypes');
 
         _hasChanges = false;
+        DebugLogService().addDebugLog('[child_settings] setState completed');
       });
 
       if (mounted) {

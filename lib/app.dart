@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'page/home.dart';
 import 'page/bluetooth_connect_page.dart';
+import 'protocol/protocol.dart';
 
 // TODO [DEV ONLY]: 上线时删除此变量
 const bool kDevMode = true;
@@ -20,15 +21,27 @@ class _MyAppState extends State<MyApp> {
   BluetoothDevice? _connectedDevice;
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
 
+  /// DTU 协议服务
+  DtuService get _dtuService => DtuServiceManager().service;
+
   @override
   void dispose() {
     _connectionSubscription?.cancel();
     super.dispose();
   }
 
-  void _onDeviceConnected(BluetoothDevice device) {
+  void _onDeviceConnected(BluetoothDevice device) async {
     _connectedDevice = device;
     _listenConnectionState(device);
+
+    // 连接后读取设备信息获取角色
+    try {
+      await _dtuService.connect(device);
+      await _dtuService.readDeviceInfo();
+    } catch (e) {
+      debugPrint('读取设备信息失败: $e');
+    }
+
     setState(() {
       _isConnected = true;
     });
@@ -50,9 +63,10 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
-  void _onDeviceDisconnected() {
+  void _onDeviceDisconnected() async {
     _connectionSubscription?.cancel();
     _connectedDevice = null;
+    await _dtuService.disconnect();
     if (mounted) {
       setState(() {
         _isConnected = false;
@@ -101,6 +115,7 @@ class _MyAppState extends State<MyApp> {
       home: _isConnected
           ? HomePage(
               device: _connectedDevice,
+              dtuService: _dtuService,
               onDisconnect: _disconnectAndReturn,
             )
           : BluetoothConnectPage(

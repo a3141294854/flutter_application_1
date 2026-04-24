@@ -1,0 +1,415 @@
+/// DTU 配置协议 - 数据模型
+/// 定义设备配置相关的数据结构
+
+import 'dart:typed_data';
+import 'dtu_protocol.dart';
+import 'dtu_frame.dart';
+
+/// 设备信息
+class DeviceInfo {
+  final int role;
+  final String mac;
+  final String name;
+
+  DeviceInfo({
+    required this.role,
+    required this.mac,
+    required this.name,
+  });
+
+  /// 从响应 BODY 解析
+  factory DeviceInfo.fromBytes(Uint8List body) {
+    if (body.length < 9) {
+      throw FormatException('设备信息数据长度不足: ${body.length}');
+    }
+
+    final status = body[0];
+    if (status != DtuProtocol.STATUS_SUCCESS) {
+      throw FormatException('读取设备信息失败: ${DtuProtocol.getStatusName(status)}');
+    }
+
+    final role = body[1];
+    final mac = DtuFrame.formatMac(body.sublist(2, 8).toList());
+    final nameLen = body[8];
+    final name = String.fromCharCodes(body.sublist(9, 9 + nameLen));
+
+    return DeviceInfo(role: role, mac: mac, name: name);
+  }
+
+  String get roleName => DtuProtocol.getRoleName(role);
+  bool get isRoot => role == DtuProtocol.ROLE_ROOT;
+  bool get isNode => role == DtuProtocol.ROLE_NODE;
+
+  @override
+  String toString() => 'DeviceInfo(role: $roleName, mac: $mac, name: $name)';
+}
+
+/// 串口配置
+class UartConfig {
+  final int baudLevel;
+  final int parity;
+  final int stopBits;
+  final int dataBits;
+
+  UartConfig({
+    required this.baudLevel,
+    required this.parity,
+    required this.stopBits,
+    required this.dataBits,
+  });
+
+  /// 从响应 BODY 解析
+  factory UartConfig.fromBytes(Uint8List body) {
+    if (body.length < 5) {
+      throw FormatException('串口配置数据长度不足: ${body.length}');
+    }
+
+    final status = body[0];
+    if (status != DtuProtocol.STATUS_SUCCESS) {
+      throw FormatException('读取串口配置失败: ${DtuProtocol.getStatusName(status)}');
+    }
+
+    return UartConfig(
+      baudLevel: body[1],
+      parity: body[2],
+      stopBits: body[3],
+      dataBits: body[4],
+    );
+  }
+
+  /// 默认配置
+  factory UartConfig.defaultConfig() {
+    return UartConfig(
+      baudLevel: 0x03, // 9600
+      parity: DtuProtocol.PARITY_NONE,
+      stopBits: DtuProtocol.STOP_BITS_1,
+      dataBits: DtuProtocol.DATA_BITS_8,
+    );
+  }
+
+  int get baudRate => DtuProtocol.getBaudRate(baudLevel);
+  String get parityName => DtuProtocol.getParityName(parity);
+  String get dataBitsStr => '$dataBits';
+  String get stopBitsStr => '$stopBits';
+
+  /// 转换为字节列表
+  List<int> toBytes() {
+    return [baudLevel, parity, stopBits, dataBits];
+  }
+
+  @override
+  String toString() =>
+      'UartConfig(baud: $baudRate, parity: $parityName, stop: $stopBits, data: $dataBits)';
+}
+
+/// Modbus 预设项
+class ModbusItem {
+  final int addr;
+  final int devType;
+
+  ModbusItem({
+    required this.addr,
+    required this.devType,
+  });
+
+  /// 从字节解析
+  factory ModbusItem.fromBytes(int addr, int devType) {
+    return ModbusItem(addr: addr, devType: devType);
+  }
+
+  /// 转换为字节
+  List<int> toBytes() => [addr, devType];
+
+  String get deviceTypeName => DtuProtocol.getDeviceTypeName(devType);
+
+  @override
+  String toString() => 'ModbusItem(addr: $addr, type: $deviceTypeName)';
+}
+
+/// Modbus 配置
+class ModbusConfig {
+  final List<ModbusItem> items;
+
+  ModbusConfig({required this.items});
+
+  /// 从响应 BODY 解析
+  factory ModbusConfig.fromBytes(Uint8List body) {
+    if (body.length < 2) {
+      throw FormatException('Modbus 配置数据长度不足: ${body.length}');
+    }
+
+    final status = body[0];
+    if (status != DtuProtocol.STATUS_SUCCESS) {
+      throw FormatException('读取 Modbus 配置失败: ${DtuProtocol.getStatusName(status)}');
+    }
+
+    final itemCount = body[1];
+    final items = <ModbusItem>[];
+
+    for (int i = 0; i < itemCount; i++) {
+      final offset = 2 + i * 2;
+      if (offset + 2 <= body.length) {
+        items.add(ModbusItem.fromBytes(body[offset], body[offset + 1]));
+      }
+    }
+
+    return ModbusConfig(items: items);
+  }
+
+  /// 默认配置（8 个空项）
+  factory ModbusConfig.defaultConfig() {
+    return ModbusConfig(
+      items: List.generate(8, (i) => ModbusItem(addr: i + 1, devType: 0)),
+    );
+  }
+
+  /// 转换为字节列表
+  List<Map<String, int>> toBytesList() {
+    return items.map((item) => {'addr': item.addr, 'dev_type': item.devType}).toList();
+  }
+
+  @override
+  String toString() => 'ModbusConfig(items: ${items.length})';
+}
+
+/// 白名单条目（包含子节点完整配置）
+class WhiteListItem {
+  final String mac;
+  final String name;
+  // 串口参数
+  final int baudLevel;
+  final int dataBits;
+  final int stopBits;
+  final int parity;
+  // Modbus 配置
+  final List<int> modbusAddresses;
+
+  WhiteListItem({
+    required this.mac,
+    required this.name,
+    this.baudLevel = 0x03, // 默认 9600
+    this.dataBits = 0x08,
+    this.stopBits = 0x01,
+    this.parity = DtuProtocol.PARITY_NONE,
+    List<int>? modbusAddresses,
+  }) : modbusAddresses = modbusAddresses ?? [1, 2, 3, 4, 5, 6, 7, 8];
+
+  /// 从字节解析（Tag 0x07 格式：MAC + name_len + name）
+  factory WhiteListItem.fromTag07(List<int> bytes) {
+    if (bytes.length < 7) {
+      throw FormatException('白名单条目数据长度不足: ${bytes.length}');
+    }
+
+    final mac = DtuFrame.formatMac(bytes.sublist(0, 6));
+    final nameLen = bytes[6];
+    final name = String.fromCharCodes(bytes.sublist(7, 7 + nameLen));
+
+    return WhiteListItem(mac: mac, name: name);
+  }
+
+  /// 从字节解析（Tag 0x08 格式：MAC + uart + modbus）
+  /// 8字节MAC + 1字节波特率 + 1字节数据位 + 1字节停止位 + 1字节校验位 + 1字节modbus个数 + N字节地址
+  factory WhiteListItem.fromTag08(List<int> bytes) {
+    if (bytes.length < 13) {
+      throw FormatException('子节点配置数据长度不足: ${bytes.length}');
+    }
+
+    final mac = DtuFrame.formatMac(bytes.sublist(0, 6));
+    final baudLevel = bytes[6];
+    final dataBits = bytes[7];
+    final stopBits = bytes[8];
+    final parity = bytes[9];
+    final modbusCount = bytes[10];
+    final modbusAddresses = bytes.sublist(11, 11 + modbusCount);
+
+    return WhiteListItem(
+      mac: mac,
+      name: '', // Tag 0x08 不包含名称，需要和 Tag 0x07 配合使用
+      baudLevel: baudLevel,
+      dataBits: dataBits,
+      stopBits: stopBits,
+      parity: parity,
+      modbusAddresses: modbusAddresses,
+    );
+  }
+
+  /// 创建完整条目（合并 Tag 0x07 和 Tag 0x08）
+  WhiteListItem copyWithFull({
+    String? name,
+    int? baudLevel,
+    int? dataBits,
+    int? stopBits,
+    int? parity,
+    List<int>? modbusAddresses,
+  }) {
+    return WhiteListItem(
+      mac: mac,
+      name: name ?? this.name,
+      baudLevel: baudLevel ?? this.baudLevel,
+      dataBits: dataBits ?? this.dataBits,
+      stopBits: stopBits ?? this.stopBits,
+      parity: parity ?? this.parity,
+      modbusAddresses: modbusAddresses ?? this.modbusAddresses,
+    );
+  }
+
+  /// 获取波特率字符串
+  String get baudRateStr => DtuProtocol.getBaudRate(baudLevel).toString();
+
+  /// 获取 Modbus 地址列表字符串
+  String get modbusStr {
+    if (modbusAddresses.isEmpty) return '无';
+    return modbusAddresses.map((a) => a.toString()).join(', ');
+  }
+
+  /// 字节长度（Tag 0x07）
+  int get tag07ByteLength => 6 + 1 + name.length;
+
+  /// 字节长度（Tag 0x08）
+  int get tag08ByteLength => 6 + 4 + 1 + modbusAddresses.length;
+
+  @override
+  String toString() =>
+      'WhiteListItem(mac: $mac, name: $name, baud: $baudRateStr)';
+}
+
+/// 白名单读取结果（支持分片）
+class WhiteListResult {
+  final int fragIdx;
+  final int fragTotal;
+  final int wlTotal;
+  final int itemCount;
+  final List<WhiteListItem> items;
+  final bool isComplete;
+
+  WhiteListResult({
+    required this.fragIdx,
+    required this.fragTotal,
+    required this.wlTotal,
+    required this.itemCount,
+    required this.items,
+  }) : isComplete = fragIdx == fragTotal;
+
+  /// 从响应 BODY 解析
+  factory WhiteListResult.fromBytes(Uint8List body) {
+    if (body.length < 5) {
+      throw FormatException('白名单数据长度不足: ${body.length}');
+    }
+
+    final status = body[0];
+    if (status != DtuProtocol.STATUS_SUCCESS) {
+      throw FormatException('读取白名单失败: ${DtuProtocol.getStatusName(status)}');
+    }
+
+    final fragIdx = body[1];
+    final fragTotal = body[2];
+    final wlTotal = body[3];
+    final itemCount = body[4];
+
+    // 解析白名单项
+    final items = <WhiteListItem>[];
+    int offset = 5;
+    for (int i = 0; i < itemCount; i++) {
+      if (offset >= body.length) break;
+
+      // 获取 name_len
+      if (offset + 7 > body.length) break;
+      final nameLen = body[offset + 6];
+      final itemLen = 6 + 1 + nameLen; // mac + name_len + name
+
+      if (offset + itemLen <= body.length) {
+        final itemBytes = body.sublist(offset, offset + itemLen);
+        items.add(WhiteListItem.fromTag07(itemBytes));
+        offset += itemLen;
+      } else {
+        break;
+      }
+    }
+
+    return WhiteListResult(
+      fragIdx: fragIdx,
+      fragTotal: fragTotal,
+      wlTotal: wlTotal,
+      itemCount: itemCount,
+      items: items,
+    );
+  }
+
+  @override
+  String toString() =>
+      'WhiteListResult(frag: $fragIdx/$fragTotal, total: $wlTotal, items: $itemCount)';
+}
+
+/// 功率配置
+class PowerConfig {
+  final int power;
+
+  PowerConfig({required this.power});
+
+  /// 从响应 BODY 解析
+  factory PowerConfig.fromBytes(Uint8List body) {
+    if (body.length < 2) {
+      throw FormatException('功率数据长度不足: ${body.length}');
+    }
+
+    final status = body[0];
+    if (status != DtuProtocol.STATUS_SUCCESS) {
+      throw FormatException('读取功率失败: ${DtuProtocol.getStatusName(status)}');
+    }
+
+    return PowerConfig(power: body[1]);
+  }
+
+  /// 默认功率
+  factory PowerConfig.defaultConfig() {
+    return PowerConfig(power: 3);
+  }
+
+  @override
+  String toString() => 'PowerConfig(power: $power)';
+}
+
+/// 设备完整配置
+class DeviceConfig {
+  final DeviceInfo? deviceInfo;
+  final UartConfig? uartConfig;
+  final ModbusConfig? modbusConfig;
+  final List<WhiteListItem> whiteList;
+  final PowerConfig? powerConfig;
+
+  DeviceConfig({
+    this.deviceInfo,
+    this.uartConfig,
+    this.modbusConfig,
+    this.whiteList = const [],
+    this.powerConfig,
+  });
+
+  /// 创建空配置
+  factory DeviceConfig.empty() {
+    return DeviceConfig(
+      uartConfig: UartConfig.defaultConfig(),
+      modbusConfig: ModbusConfig.defaultConfig(),
+      powerConfig: PowerConfig.defaultConfig(),
+    );
+  }
+
+  /// 复制并更新
+  DeviceConfig copyWith({
+    DeviceInfo? deviceInfo,
+    UartConfig? uartConfig,
+    ModbusConfig? modbusConfig,
+    List<WhiteListItem>? whiteList,
+    PowerConfig? powerConfig,
+  }) {
+    return DeviceConfig(
+      deviceInfo: deviceInfo ?? this.deviceInfo,
+      uartConfig: uartConfig ?? this.uartConfig,
+      modbusConfig: modbusConfig ?? this.modbusConfig,
+      whiteList: whiteList ?? this.whiteList,
+      powerConfig: powerConfig ?? this.powerConfig,
+    );
+  }
+
+  bool get isRoot => deviceInfo?.isRoot ?? true;
+}

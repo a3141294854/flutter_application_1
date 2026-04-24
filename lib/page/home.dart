@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import '../protocol/protocol.dart';
 import 'device_list_page.dart';
 import 'settings_page.dart';
 import 'child_settings_page.dart';
@@ -9,11 +10,13 @@ enum NodeType { root, child }
 
 class HomePage extends StatefulWidget {
   final BluetoothDevice? device;
+  final DtuService dtuService;
   final VoidCallback onDisconnect;
 
   const HomePage({
     super.key,
     this.device,
+    required this.dtuService,
     required this.onDisconnect,
   });
 
@@ -23,7 +26,23 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
-  NodeType _nodeType = NodeType.root;
+
+  /// 根据设备配置中的角色自动确定节点类型
+  NodeType get _nodeType {
+    // 如果有设备信息，使用设备信息的角色
+    final deviceInfo = widget.dtuService.deviceInfo;
+    if (deviceInfo != null) {
+      return deviceInfo.isRoot ? NodeType.root : NodeType.child;
+    }
+    // 默认使用根节点
+    return NodeType.root;
+  }
+
+  /// 获取设备角色名称
+  String get _roleName {
+    final deviceInfo = widget.dtuService.deviceInfo;
+    return deviceInfo?.roleName ?? '未知';
+  }
 
   String get _deviceName {
     if (widget.device == null) return '未知设备';
@@ -32,8 +51,12 @@ class _HomePageState extends State<HomePage> {
   }
 
   String get _deviceMac {
+    // 优先使用协议层获取的 MAC
+    final deviceInfo = widget.dtuService.deviceInfo;
+    if (deviceInfo != null && deviceInfo.mac.isNotEmpty) {
+      return deviceInfo.mac;
+    }
     if (widget.device == null) return '00:00:00:00:00:00';
-    // 开发模式或无法获取MAC时显示默认值
     return 'AA:BB:CC:DD:EE:FF';
   }
 
@@ -88,41 +111,32 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: _showNodeTypeDialog,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: _nodeType == NodeType.root
-                                      ? const Color(0xFF4CAF50)
-                                      : const Color(0xFFFF9800),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      _nodeType == NodeType.root ? Icons.hub : Icons.device_hub,
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _nodeType == NodeType.root
+                                    ? const Color(0xFF4CAF50)
+                                    : const Color(0xFFFF9800),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _nodeType == NodeType.root ? Icons.hub : Icons.device_hub,
+                                    color: Colors.white,
+                                    size: 12,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _roleName,
+                                    style: const TextStyle(
+                                      fontSize: 10,
                                       color: Colors.white,
-                                      size: 12,
+                                      fontWeight: FontWeight.bold,
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      _nodeType == NodeType.root ? '根节点' : '子节点',
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 2),
-                                    const Icon(
-                                      Icons.arrow_drop_down,
-                                      color: Colors.white,
-                                      size: 14,
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -164,16 +178,16 @@ class _HomePageState extends State<HomePage> {
                   ? IndexedStack(
                       index: _currentIndex,
                       children: [
-                        DeviceListPage(isConnected: true, device: widget.device),
-                        SettingsPage(isConnected: true, device: widget.device),
-                        SendOptionsPage(isConnected: true, device: widget.device),
+                        DeviceListPage(isConnected: true, dtuService: widget.dtuService),
+                        SettingsPage(isConnected: true, dtuService: widget.dtuService),
+                        SendOptionsPage(isConnected: true, dtuService: widget.dtuService),
                       ],
                     )
                   : IndexedStack(
                       index: _currentIndex,
                       children: [
-                        ChildSettingsPage(isConnected: true, device: widget.device),
-                        SendOptionsPage(isConnected: true, device: widget.device),
+                        ChildSettingsPage(isConnected: true, dtuService: widget.dtuService),
+                        SendOptionsPage(isConnected: true, dtuService: widget.dtuService),
                       ],
                     ),
             ),
@@ -263,104 +277,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showNodeTypeDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFF0F7FF),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Row(
-          children: [
-            Icon(Icons.settings_input_antenna, color: Color(0xFF4A90D9)),
-            SizedBox(width: 8),
-            Text(
-              '选择节点类型',
-              style: TextStyle(color: Color(0xFF2D4A6F), fontSize: 15),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildNodeTypeOption(
-              '根节点',
-              '主机节点，可配置子设备白名单',
-              Icons.hub,
-              const Color(0xFF4CAF50),
-              NodeType.root,
-            ),
-            const SizedBox(height: 10),
-            _buildNodeTypeOption(
-              '子节点',
-              '从设备节点，仅可配置串口参数',
-              Icons.device_hub,
-              const Color(0xFFFF9800),
-              NodeType.child,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNodeTypeOption(String title, String desc, IconData icon, Color color, NodeType type) {
-    final isSelected = _nodeType == type;
-    return GestureDetector(
-      onTap: () {
-        setState(() => _nodeType = type);
-        Navigator.pop(context);
-      },
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.1) : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected ? color : const Color(0xFFE8F2FF),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? color : const Color(0xFF2D4A6F),
-                    ),
-                  ),
-                  Text(
-                    desc,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFFA0BCD6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (isSelected)
-              Icon(Icons.check_circle, color: color, size: 20),
-          ],
-        ),
       ),
     );
   }

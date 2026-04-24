@@ -27,7 +27,7 @@ class _ChildSettingsPageState extends State<ChildSettingsPage> {
 
   // Modbus 配置
   final List<int> _modbusAddresses = [1, 2, 3, 4, 5, 6, 7, 8];
-  final List<int> _modbusDeviceTypes = [5, 5, 5, 5, 5, 5, 5, 5]; // 5 = 保留 (DEV_TYPE_RESERVED)
+  final List<int> _modbusDeviceTypes = [5, 5, 5, 5, 5, 5, 5, 5]; // 默认: 5=保留
 
   bool _isLoading = false;
   bool _hasChanges = false;
@@ -380,7 +380,7 @@ class _ChildSettingsPageState extends State<ChildSettingsPage> {
   void _resetModbusAddresses() {
     setState(() {
       _modbusAddresses.setAll(0, [1, 2, 3, 4, 5, 6, 7, 8]);
-      _modbusDeviceTypes.setAll(0, [5, 5, 5, 5, 5, 5, 5, 5]); // 5 = 保留
+      _modbusDeviceTypes.setAll(0, [5, 5, 5, 5, 5, 5, 5, 5]); // 默认: 5=保留
       _hasChanges = true;
     });
     _sendModbusConfig(); // 实时发送

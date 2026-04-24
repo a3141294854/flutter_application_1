@@ -110,6 +110,7 @@ class DtuFrame {
   }
 
   /// 构建 Modbus 配置设置请求
+  /// BODY格式: item_count(1) + (addr(1) + dev_type(1)) × N
   static Uint8List buildSetModbusCfg(List<Map<String, int>> items) {
     final body = <int>[];
     body.add(items.length); // item_count

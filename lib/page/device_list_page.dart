@@ -457,9 +457,9 @@ class _QRScannerDialogState extends State<QRScannerDialog> {
   }
 }
 
-/// 添加设备对话框（基础版：只填写名称和MAC）
+/// 添加设备对话框（仅基本信息）
 class AddDeviceDialog extends StatefulWidget {
-  final Function(String name, String mac) onDeviceAdded;
+  final Function(String mac, String name) onDeviceAdded;
 
   const AddDeviceDialog({super.key, required this.onDeviceAdded});
 
@@ -473,6 +473,13 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
   String? _nameError;
   String? _macError;
   bool _fromQRCode = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _macController.dispose();
+    super.dispose();
+  }
 
   void _showQRScanner() {
     showGeneralDialog(
@@ -505,13 +512,6 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
     });
   }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _macController.dispose();
-    super.dispose();
-  }
-
   bool _isValidMacAddress(String mac) {
     if (mac.isEmpty) return false;
     final macRegex = RegExp(r'^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$');
@@ -529,7 +529,7 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
 
     if (name.isEmpty || !_isValidMacAddress(mac)) return;
 
-    widget.onDeviceAdded(name, mac);
+    widget.onDeviceAdded(mac, name);
     Navigator.pop(context);
   }
 
@@ -552,129 +552,147 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
               ),
             ],
           ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 标题
-                Row(
-                  children: [
-                    const Icon(Icons.add_circle_outline, color: Color(0xFF4A90D9), size: 22),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        '添加子设备',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2D4A6F)),
-                      ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 标题
+              Row(
+                children: [
+                  const Icon(Icons.add_circle_outline, color: Color(0xFF4A90D9), size: 22),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      '添加子设备到白名单',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2D4A6F)),
                     ),
-                    // 扫码按钮
-                    GestureDetector(
-                      onTap: _showQRScanner,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF4A90D9).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFF4A90D9)),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.qr_code_scanner, color: Color(0xFF4A90D9), size: 16),
-                            SizedBox(width: 4),
-                            Text(
-                              '扫码',
-                              style: TextStyle(
-                                color: Color(0xFF4A90D9),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
+                  ),
+                  // 扫码按钮
+                  GestureDetector(
+                    onTap: _showQRScanner,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4A90D9).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF4A90D9)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.qr_code_scanner, color: Color(0xFF4A90D9), size: 16),
+                          SizedBox(width: 4),
+                          Text(
+                            '扫码',
+                            style: TextStyle(
+                              color: Color(0xFF4A90D9),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(height: 1, color: const Color(0xFFE8F2FF)),
+              const SizedBox(height: 16),
+
+              // 基本信息
+              _buildSectionTitle('基本信息', Icons.info_outline),
+              const SizedBox(height: 12),
+
+              // 设备名称
+              _buildLabel('设备名称'),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _nameController,
+                style: const TextStyle(fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: '请输入设备名称',
+                  isDense: true,
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _nameError != null ? Colors.red : Colors.transparent)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _nameError != null ? Colors.red.shade200 : Colors.transparent)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _nameError != null ? Colors.red : const Color(0xFF4A90D9))),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+              ),
+              if (_nameError != null) ...[
+                const SizedBox(height: 4),
+                Text(_nameError!, style: const TextStyle(color: Colors.red, fontSize: 11)),
+              ],
+              const SizedBox(height: 12),
+
+              // MAC 地址
+              _buildLabel('MAC 地址'),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _macController,
+                style: const TextStyle(fontSize: 14, letterSpacing: 1),
+                textCapitalization: TextCapitalization.characters,
+                decoration: InputDecoration(
+                  hintText: 'AA:BB:CC:DD:EE:FF',
+                  isDense: true,
+                  filled: true,
+                  fillColor: _fromQRCode ? const Color(0xFFE8F9F0) : Colors.white,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _macError != null ? Colors.red : Colors.transparent)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _macError != null ? Colors.red.shade200 : const Color(0xFFE8F9F0))),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _macError != null ? Colors.red : const Color(0xFF4A90D9))),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  suffixIcon: _fromQRCode
+                      ? const Padding(
+                          padding: EdgeInsets.only(right: 8),
+                          child: Icon(Icons.check_circle, color: Colors.green, size: 20),
+                        )
+                      : null,
+                ),
+              ),
+              if (_macError != null) ...[
+                const SizedBox(height: 4),
+                Text(_macError!, style: const TextStyle(color: Colors.red, fontSize: 11)),
+              ],
+              if (_fromQRCode) ...[
+                const SizedBox(height: 4),
+                const Text('✓ 已通过二维码扫描填充', style: TextStyle(color: Colors.green, fontSize: 11)),
+              ],
+              const SizedBox(height: 24),
+
+              // 提示
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8E1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFFE082)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Color(0xFFFFA000), size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '添加后可在设备详情中配置串口参数和Modbus地址',
+                        style: TextStyle(color: Color(0xFF795548), fontSize: 12),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Container(height: 1, color: const Color(0xFFE8F2FF)),
-                const SizedBox(height: 16),
+              ),
+              const SizedBox(height: 20),
 
-                // 基础信息
-                _buildSectionTitle('基本信息', Icons.info_outline),
-                const SizedBox(height: 12),
-
-                // 设备名称
-                _buildLabel('设备名称'),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: _nameController,
-                  style: const TextStyle(fontSize: 14),
-                  decoration: InputDecoration(
-                    hintText: '请输入设备名称',
-                    isDense: true,
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _nameError != null ? Colors.red : Colors.transparent)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _nameError != null ? Colors.red.shade200 : Colors.transparent)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _nameError != null ? Colors.red : const Color(0xFF4A90D9))),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  ),
-                ),
-                if (_nameError != null) ...[
-                  const SizedBox(height: 4),
-                  Text(_nameError!, style: const TextStyle(color: Colors.red, fontSize: 11)),
+              // 按钮
+              Row(
+                children: [
+                  Expanded(child: _DialogButton(label: '取消', isPrimary: false, onPressed: () => Navigator.pop(context))),
+                  const SizedBox(width: 12),
+                  Expanded(child: _DialogButton(label: '确认添加', isPrimary: true, onPressed: _submit)),
                 ],
-                const SizedBox(height: 12),
-
-                // MAC 地址
-                _buildLabel('MAC 地址'),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: _macController,
-                  style: const TextStyle(fontSize: 14, letterSpacing: 1),
-                  textCapitalization: TextCapitalization.characters,
-                  decoration: InputDecoration(
-                    hintText: 'AA:BB:CC:DD:EE:FF',
-                    isDense: true,
-                    filled: true,
-                    fillColor: _fromQRCode ? const Color(0xFFE8F9F0) : Colors.white,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _macError != null ? Colors.red : Colors.transparent)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _macError != null ? Colors.red.shade200 : const Color(0xFFE8F9F0))),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _macError != null ? Colors.red : const Color(0xFF4A90D9))),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    suffixIcon: _fromQRCode
-                        ? const Padding(
-                            padding: EdgeInsets.only(right: 8),
-                            child: Icon(Icons.check_circle, color: Colors.green, size: 20),
-                          )
-                        : null,
-                  ),
-                ),
-                if (_macError != null) ...[
-                  const SizedBox(height: 4),
-                  Text(_macError!, style: const TextStyle(color: Colors.red, fontSize: 11)),
-                ],
-                if (_fromQRCode) ...[
-                  const SizedBox(height: 4),
-                  const Text(
-                    '✓ 已通过二维码扫描填充',
-                    style: TextStyle(color: Colors.green, fontSize: 11),
-                  ),
-                ],
-                const SizedBox(height: 20),
-
-                // 按钮
-                Row(
-                  children: [
-                    Expanded(child: _DialogButton(label: '取消', isPrimary: false, onPressed: () => Navigator.pop(context))),
-                    const SizedBox(width: 12),
-                    Expanded(child: _DialogButton(label: '确认添加', isPrimary: true, onPressed: _submit)),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -743,7 +761,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
     }
   }
 
-  Future<void> _addDevice(String name, String mac) async {
+  Future<void> _addDevice(String mac, String name) async {
     if (!widget.isConnected) return;
 
     // 检查是否为 ROOT 设备
@@ -762,7 +780,10 @@ class _DeviceListPageState extends State<DeviceListPage> {
     setState(() => _isLoading = true);
 
     try {
+      // 添加白名单条目 (Tag 0x07)
       await _service.addWhiteListItem(mac, name);
+      
+      // 提交保存
       await _service.commit();
       await _loadWhiteList();
 
@@ -896,9 +917,18 @@ class _DeviceListPageState extends State<DeviceListPage> {
                     ),
                   ),
                   TextButton.icon(
-                    onPressed: widget.isConnected && !_isLoading && _devices.isNotEmpty
-                        ? () => _showClearAllDialog(context)
-                        : null,
+                    onPressed: () {
+                      if (_devices.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('当前没有设备可清空'),
+                            backgroundColor: Colors.orange,
+                          ),
+                        );
+                        return;
+                      }
+                      _showClearAllDialog(context);
+                    },
                     icon: Icon(
                       Icons.delete_sweep,
                       size: 18,

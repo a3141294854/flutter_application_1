@@ -8,6 +8,89 @@ import 'dtu_frame.dart';
 import 'dtu_models.dart';
 import 'dtu_protocol.dart';
 
+/// 调试日志条目
+class DebugLogEntry {
+  final DateTime timestamp;
+  final String direction; // "发送" 或 "接收"
+  final String cmdName; // 命令名称
+  final Uint8List data;
+  final String? error;
+
+  DebugLogEntry({
+    required this.timestamp,
+    required this.direction,
+    required this.cmdName,
+    required this.data,
+    this.error,
+  });
+
+  String get hexString => data.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(' ');
+
+  String get formattedTime => '${timestamp.hour.toString().padLeft(2, '0')}:'
+      '${timestamp.minute.toString().padLeft(2, '0')}:'
+      '${timestamp.second.toString().padLeft(2, '0')}.'
+      '${timestamp.millisecond.toString().padLeft(3, '0')}';
+}
+
+/// 调试日志服务
+class DebugLogService {
+  static final DebugLogService _instance = DebugLogService._internal();
+  factory DebugLogService() => _instance;
+  DebugLogService._internal();
+
+  final _logs = <DebugLogEntry>[];
+  final _maxLogs = 500;
+
+  final _controller = StreamController<DebugLogEntry>.broadcast();
+  Stream<DebugLogEntry> get stream => _controller.stream;
+
+  /// 获取所有日志
+  List<DebugLogEntry> get logs => List.unmodifiable(_logs);
+
+  /// 添加日志
+  void addLog(DebugLogEntry entry) {
+    _logs.add(entry);
+    if (_logs.length > _maxLogs) {
+      _logs.removeAt(0);
+    }
+    _controller.add(entry);
+  }
+
+  /// 清空日志
+  void clear() {
+    _logs.clear();
+  }
+
+  /// 获取命令名称
+  static String getCmdName(int cmd) {
+    switch (cmd) {
+      case 0x01: return '读取设备信息';
+      case 0x02: return '设置设备角色';
+      case 0x03: return '读取串口配置';
+      case 0x04: return '设置串口配置';
+      case 0x05: return '读取Modbus配置';
+      case 0x06: return '设置Modbus配置';
+      case 0x07: return '添加白名单';
+      case 0x08: return '设置子节点配置';
+      case 0x09: return '读取功率';
+      case 0x10: return '设置功率';
+      case 0x11: return '读取白名单';
+      case 0x12: return '删除白名单';
+      case 0x13: return '读取子节点配置';
+      case 0x16: return '清空白名单';
+      case 0x17: return '批量设置白名单';
+      case 0x20: return '提交保存';
+      case 0xFE: return '重启设备';
+      case 0xFF: return '恢复出厂';
+      default: return '0x${cmd.toRadixString(16).toUpperCase()}';
+    }
+  }
+
+  void dispose() {
+    _controller.close();
+  }
+}
+
 /// BLE 通信服务
 /// 管理与 DTU 设备的蓝牙通信
 class BleService {
@@ -96,6 +179,16 @@ class BleService {
 
     _pendingRequests[seq] = completer;
 
+    // 记录发送的日志
+    final cmd = frame.length > 4 ? frame[4] : 0;
+    final sendEntry = DebugLogEntry(
+      timestamp: DateTime.now(),
+      direction: '发送',
+      cmdName: DebugLogService.getCmdName(cmd),
+      data: frame,
+    );
+    DebugLogService().addLog(sendEntry);
+
     try {
       // 发送帧
       await _writeChar!.write(frame, withoutResponse: false);
@@ -105,13 +198,48 @@ class BleService {
         _responseTimeout,
         onTimeout: () {
           _pendingRequests.remove(seq);
+          // 记录超时的日志
+          DebugLogService().addLog(DebugLogEntry(
+            timestamp: DateTime.now(),
+            direction: '接收',
+            cmdName: '超时',
+            data: Uint8List(0),
+            error: '响应超时',
+          ));
           return ParseResult.error('响应超时');
         },
       );
 
+      // 记录接收的日志
+      if (result.isSuccess && result.body != null) {
+        final respCmd = result.body!.length > 4 ? result.body![4] : 0;
+        DebugLogService().addLog(DebugLogEntry(
+          timestamp: DateTime.now(),
+          direction: '接收',
+          cmdName: DebugLogService.getCmdName(respCmd),
+          data: result.body!,
+        ));
+      } else if (!result.isSuccess) {
+        DebugLogService().addLog(DebugLogEntry(
+          timestamp: DateTime.now(),
+          direction: '接收',
+          cmdName: '错误',
+          data: Uint8List(0),
+          error: result.error,
+        ));
+      }
+
       return result;
     } catch (e) {
       _pendingRequests.remove(seq);
+      // 记录错误的日志
+      DebugLogService().addLog(DebugLogEntry(
+        timestamp: DateTime.now(),
+        direction: '接收',
+        cmdName: '错误',
+        data: Uint8List(0),
+        error: '发送失败: $e',
+      ));
       return ParseResult.error('发送失败: $e');
     }
   }

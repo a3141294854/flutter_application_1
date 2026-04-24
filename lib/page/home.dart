@@ -5,6 +5,7 @@ import 'device_list_page.dart';
 import 'settings_page.dart';
 import 'child_settings_page.dart';
 import 'send_options_page.dart';
+import 'debug_panel_page.dart';
 
 enum NodeType { root, child }
 
@@ -168,6 +169,19 @@ class _HomePageState extends State<HomePage> {
                       color: Color(0xFF7A9CC6),
                     ),
                     tooltip: '断开连接',
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const DebugPanelPage()),
+                      );
+                    },
+                    icon: const Icon(
+                      Icons.bug_report,
+                      color: Color(0xFF4A90D9),
+                    ),
+                    tooltip: '调试面板',
                   ),
                 ],
               ),

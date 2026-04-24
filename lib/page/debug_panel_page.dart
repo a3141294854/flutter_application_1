@@ -227,6 +227,36 @@ class _DebugPanelPageState extends State<DebugPanelPage> {
               ),
             ],
           ),
+          // 描述信息
+          if (entry.description != null && entry.description!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    entry.error != null ? Icons.error_outline : Icons.info_outline,
+                    color: entry.error != null ? Colors.red : Colors.cyan,
+                    size: 14,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      entry.description!,
+                      style: TextStyle(
+                        color: entry.error != null ? Colors.red.shade300 : Colors.cyan.shade300,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           // 数据内容
           if (entry.data.isNotEmpty) ...[
             const SizedBox(height: 6),
@@ -236,9 +266,20 @@ class _DebugPanelPageState extends State<DebugPanelPage> {
                 color: Colors.black.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(
-                entry.hexString,
-                style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'monospace'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.hexString,
+                    style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'monospace'),
+                  ),
+                  const SizedBox(height: 4),
+                  // 解析数据内容
+                  Text(
+                    _parseFrameInfo(entry),
+                    style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'monospace'),
+                  ),
+                ],
               ),
             ),
           ],
@@ -253,5 +294,29 @@ class _DebugPanelPageState extends State<DebugPanelPage> {
         ],
       ),
     );
+  }
+
+  /// 解析帧信息
+  String _parseFrameInfo(DebugLogEntry entry) {
+    final data = entry.data;
+    if (data.length < 7) return '';
+    
+    // 帧格式: AA 55 CMD SEQ LEN_L LEN_H [BODY...] CRC_L CRC_H
+    final cmd = data[2];
+    final seq = data[3];
+    final len = data[4] | (data[5] << 8);
+    
+    final parts = <String>[
+      'CMD=0x${cmd.toRadixString(16).padLeft(2, '0').toUpperCase()}',
+      'SEQ=$seq',
+      'LEN=$len',
+    ];
+    
+    if (data.length > 6 && len > 0) {
+      final body = data.sublist(6, 6 + len.clamp(0, data.length - 8));
+      parts.add('BODY=${body.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(' ')}');
+    }
+    
+    return parts.join(' | ');
   }
 }

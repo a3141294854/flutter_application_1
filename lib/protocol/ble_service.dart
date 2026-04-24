@@ -637,10 +637,10 @@ class BleService {
   /// 读取 Modbus 配置
   Future<ModbusConfig> readModbusConfig() async {
     final result = await sendAndWait(DtuFrame.buildReadModbusCfg());
-    DebugLogService().addDebugLog('[readModbusConfig] result.isSuccess: ${result.isSuccess}, error: ${result.error}');
+    print('[readModbusConfig] result.isSuccess: ${result.isSuccess}, error: ${result.error}');
     if (result.body != null) {
-      DebugLogService().addDebugLog('[readModbusConfig] body length: ${result.body!.length}');
-      DebugLogService().addDebugLog('[readModbusConfig] body hex: ${result.body!.map((b) => '0x${b.toRadixString(16).toUpperCase().padLeft(2, '0')}').join(' ')}');
+      print('[readModbusConfig] body length: ${result.body!.length}');
+      print('[readModbusConfig] body hex: ${result.body!.map((b) => '0x${b.toRadixString(16).toUpperCase().padLeft(2, '0')}').join(' ')}');
     }
     if (!result.isSuccess) {
       throw FormatException('读取 Modbus 配置失败: ${result.error}');

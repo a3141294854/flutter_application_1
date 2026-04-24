@@ -2,9 +2,9 @@
 /// 定义设备配置相关的数据结构
 
 import 'dart:typed_data';
+import 'dart:developer' as developer;
 import 'dtu_protocol.dart';
 import 'dtu_frame.dart';
-import 'ble_service.dart';
 
 /// 设备信息
 class DeviceInfo {
@@ -135,12 +135,14 @@ class ModbusConfig {
 
   /// 从响应 BODY 解析
   factory ModbusConfig.fromBytes(Uint8List body) {
-    DebugLogService().addDebugLog('[ModbusConfig.fromBytes] body length: ${body.length}');
+    void log(String msg) => developer.log(msg, name: 'ModbusConfig');
+    
+    log('body length: ${body.length}');
     if (body.length >= 2) {
-      DebugLogService().addDebugLog('[ModbusConfig.fromBytes] first 2 bytes: [0x${body[0].toRadixString(16).toUpperCase()}, 0x${body[1].toRadixString(16).toUpperCase()}]');
+      log('first 2 bytes: [0x${body[0].toRadixString(16).toUpperCase()}, 0x${body[1].toRadixString(16).toUpperCase()}]');
     }
     if (body.length >= 6) {
-      DebugLogService().addDebugLog('[ModbusConfig.fromBytes] first 6 bytes: ${body.sublist(0, 6).map((b) => '0x${b.toRadixString(16).toUpperCase()}').join(', ')}');
+      log('first 6 bytes: ${body.sublist(0, 6).map((b) => '0x${b.toRadixString(16).toUpperCase()}').join(', ')}');
     }
     
     if (body.length < 2) {
@@ -148,13 +150,13 @@ class ModbusConfig {
     }
 
     final status = body[0];
-    DebugLogService().addDebugLog('[ModbusConfig.fromBytes] status: 0x${status.toRadixString(16).toUpperCase()}');
+    log('status: 0x${status.toRadixString(16).toUpperCase()}');
     if (status != DtuProtocol.STATUS_SUCCESS) {
       throw FormatException('读取 Modbus 配置失败: ${DtuProtocol.getStatusName(status)}');
     }
 
     final itemCount = body[1];
-    DebugLogService().addDebugLog('[ModbusConfig.fromBytes] itemCount from response: $itemCount');
+    log('itemCount from response: $itemCount');
     
     final items = <ModbusItem>[];
 
@@ -166,12 +168,12 @@ class ModbusConfig {
       final addr = body[offset];
       final devType = body[offset + 1];
       items.add(ModbusItem(addr: addr, devType: devType));
-      DebugLogService().addDebugLog('[ModbusConfig.fromBytes] item[$parsedItems]: addr=$addr, devType=$devType (0x${devType.toRadixString(16).toUpperCase()})');
+      log('item[$parsedItems]: addr=$addr, devType=$devType (0x${devType.toRadixString(16).toUpperCase()})');
       offset += 2;
       parsedItems++;
     }
 
-    DebugLogService().addDebugLog('[ModbusConfig.fromBytes] parsed ${items.length} items (expected: $itemCount)');
+    log('parsed ${items.length} items (expected: $itemCount)');
     return ModbusConfig(items: items);
   }
 

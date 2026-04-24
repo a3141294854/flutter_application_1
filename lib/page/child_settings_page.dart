@@ -87,10 +87,10 @@ class _ChildSettingsPageState extends State<ChildSettingsPage> {
 
     try {
       final config = await _service.readAllConfig();
-      DebugLogService().addDebugLog('[child_settings] Got config, modbusConfig=${config.modbusConfig?.items.length ?? "null"}');
+      print('[child_settings] Got config, modbusConfig=${config.modbusConfig?.items.length ?? "null"}');
 
       setState(() {
-        DebugLogService().addDebugLog('[child_settings] Inside setState callback');
+        print('[child_settings] Inside setState callback');
         if (config.uartConfig != null) {
           _baudLevel = config.uartConfig!.baudLevel;
           _dataBits = config.uartConfig!.dataBits;
@@ -99,23 +99,23 @@ class _ChildSettingsPageState extends State<ChildSettingsPage> {
         }
 
         // 更新 Modbus 配置
-        DebugLogService().addDebugLog('[child_settings] modbusConfig is null: ${config.modbusConfig == null}');
+        print('[child_settings] modbusConfig is null: ${config.modbusConfig == null}');
         if (config.modbusConfig != null) {
-          DebugLogService().addDebugLog('[child_settings] Modbus config items count: ${config.modbusConfig!.items.length}');
+          print('[child_settings] Modbus config items count: ${config.modbusConfig!.items.length}');
           if (config.modbusConfig!.items.isEmpty) {
-            DebugLogService().addDebugLog('[child_settings] Modbus items is empty, using default values');
+            print('[child_settings] Modbus items is empty, using default values');
           } else {
             for (int i = 0; i < config.modbusConfig!.items.length && i < 8; i++) {
               _modbusAddresses[i] = config.modbusConfig!.items[i].addr;
               _modbusDeviceTypes[i] = config.modbusConfig!.items[i].devType;
-              DebugLogService().addDebugLog('[child_settings] Modbus[$i]: addr=${_modbusAddresses[i]}, type=${_modbusDeviceTypes[i]}');
+              print('[child_settings] Modbus[$i]: addr=${_modbusAddresses[i]}, type=${_modbusDeviceTypes[i]}');
             }
           }
         }
-        DebugLogService().addDebugLog('[child_settings] After update: _modbusAddresses=$_modbusAddresses, _modbusDeviceTypes=$_modbusDeviceTypes');
+        print('[child_settings] After update: _modbusAddresses=$_modbusAddresses, _modbusDeviceTypes=$_modbusDeviceTypes');
 
         _hasChanges = false;
-        DebugLogService().addDebugLog('[child_settings] setState completed');
+        print('[child_settings] setState completed');
       });
 
       if (mounted) {

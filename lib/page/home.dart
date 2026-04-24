@@ -329,8 +329,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _switchRole(NodeType targetRole) async {
-    Navigator.pop(context); // 关闭对话框
-
     // 判断目标角色
     final int targetRoleValue = targetRole == NodeType.root
         ? DtuProtocol.ROLE_ROOT  // 0x01
@@ -338,11 +336,19 @@ class _HomePageState extends State<HomePage> {
 
     final targetRoleName = targetRole == NodeType.root ? 'ROOT (根节点)' : 'NODE (子节点)';
 
+    // 关闭角色选择对话框
+    Navigator.pop(context);
+
+    // 等待一帧，确保对话框已关闭
+    await Future.delayed(Duration.zero);
+
+    if (!mounted) return;
+
     // 显示加载对话框
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const AlertDialog(
+      builder: (dialogContext) => const AlertDialog(
         backgroundColor: Color(0xFFF0F7FF),
         content: Row(
           children: [
@@ -356,22 +362,24 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-    );
+    ).then((_) async {
+      // 对话框关闭后执行
+    });
 
     try {
       // 1. 设置角色
       await widget.dtuService.writeAllConfig(role: targetRoleValue);
 
+      // 2. 更新 DtuService 中的角色信息
+      widget.dtuService.updateRole(targetRoleValue);
+
+      // 3. 关闭加载对话框
       if (mounted) {
         Navigator.pop(context); // 关闭加载对话框
+      }
 
-        // 更新本地状态并刷新 UI
-        Navigator.pop(context); // 关闭对话框
-
-        // 更新 DtuService 中的角色信息
-        widget.dtuService.updateRole(targetRoleValue);
-
-        // 强制重建 UI
+      // 4. 强制重建 UI
+      if (mounted) {
         setState(() {});
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -384,8 +392,9 @@ class _HomePageState extends State<HomePage> {
       }
 
     } catch (e) {
+      // 关闭加载对话框
       if (mounted) {
-        Navigator.pop(context); // 关闭加载对话框
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('切换失败: $e'),

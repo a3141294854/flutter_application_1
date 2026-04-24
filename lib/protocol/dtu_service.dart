@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'ble_service.dart';
 import 'dtu_models.dart';
+import 'dtu_protocol.dart';
 
 /// 协议服务
 /// 封装完整的配置读取和写入流程
@@ -31,12 +32,20 @@ class DtuService {
   void updateRole(int role) {
     final currentInfo = _config.deviceInfo;
     if (currentInfo != null) {
+      // 更新现有设备信息
       final updatedInfo = DeviceInfo(
         role: role,
         mac: currentInfo.mac,
         name: currentInfo.name,
       );
       _config = _config.copyWith(deviceInfo: updatedInfo);
+      print('[DtuService] Updated role to ${role == DtuProtocol.ROLE_ROOT ? "ROOT" : "NODE"}');
+    } else {
+      // 如果没有设备信息，创建一个
+      _config = _config.copyWith(
+        deviceInfo: DeviceInfo(role: role, mac: '00:00:00:00:00:00', name: 'Unknown'),
+      );
+      print('[DtuService] Created new DeviceInfo with role ${role == DtuProtocol.ROLE_ROOT ? "ROOT" : "NODE"}');
     }
   }
 

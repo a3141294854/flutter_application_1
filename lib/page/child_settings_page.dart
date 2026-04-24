@@ -63,11 +63,20 @@ class _ChildSettingsPageState extends State<ChildSettingsPage> {
   @override
   void initState() {
     super.initState();
-    // 连接后自动读取配置
+    // 连接后自动读取配置（延迟执行以避免切换时崩溃）
     if (widget.isConnected) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _readConfig();
+        _safeReadConfig();
       });
+    }
+  }
+
+  Future<void> _safeReadConfig() async {
+    try {
+      await _readConfig();
+    } catch (e) {
+      // 忽略读取错误，页面仍然正常显示
+      debugPrint('[child_settings] Initial config read failed, ignoring: $e');
     }
   }
 

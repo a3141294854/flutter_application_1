@@ -232,7 +232,7 @@ class WhiteListItem {
   }
 
   /// 从字节解析（Tag 0x08 格式：MAC + uart + modbus）
-  /// BODY: MAC(6) + 波特率(1) + 数据位(1) + 停止位(1) + 校验位(1) + 从站个数(1) + (addr+dev_type)×N
+  /// BODY: MAC(6) + 波特率(1) + 校验位(1) + 停止位(1) + 数据位(1) + 从站个数(1) + (addr+dev_type)×N
   factory WhiteListItem.fromTag08(List<int> bytes) {
     if (bytes.length < 11) {
       throw FormatException('子节点配置数据长度不足: ${bytes.length}');
@@ -240,9 +240,9 @@ class WhiteListItem {
 
     final mac = DtuFrame.formatMac(bytes.sublist(0, 6));
     final baudLevel = bytes[6];
-    final dataBits = bytes[7];
+    final parity = bytes[7];
     final stopBits = bytes[8];
-    final parity = bytes[9];
+    final dataBits = bytes[9];
     final modbusCount = bytes[10];
 
     // 解析 (addr + dev_type) 对

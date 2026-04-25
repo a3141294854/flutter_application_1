@@ -103,11 +103,13 @@ class QRScanResult {
 class ChildNodeConfigDialog extends StatefulWidget {
   final WhiteListItem device;
   final Function(WhiteListItem) onConfigSaved;
+  final Future<WhiteListItem> Function(String mac) onLoadNodeConfig;
 
   const ChildNodeConfigDialog({
     super.key,
     required this.device,
     required this.onConfigSaved,
+    required this.onLoadNodeConfig,
   });
 
   @override
@@ -119,14 +121,41 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
   late int _dataBits;
   late int _stopBits;
   late int _parity;
+  bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
+    // 使用默认值作为初始值
     _baudLevel = widget.device.baudLevel;
     _dataBits = widget.device.dataBits;
     _stopBits = widget.device.stopBits;
     _parity = widget.device.parity;
+    // 从设备读取真实配置
+    _loadNodeConfig();
+  }
+
+  Future<void> _loadNodeConfig() async {
+    try {
+      final nodeConfig = await widget.onLoadNodeConfig(widget.device.mac);
+      if (mounted) {
+        setState(() {
+          _baudLevel = nodeConfig.baudLevel;
+          _dataBits = nodeConfig.dataBits;
+          _stopBits = nodeConfig.stopBits;
+          _parity = nodeConfig.parity;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   void _submit() {
@@ -143,6 +172,93 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // 加载中状态
+    if (_isLoading) {
+      return Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            padding: const EdgeInsets.all(40),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F7FF),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4A90D9).withValues(alpha: 0.2),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: Color(0xFF4A90D9)),
+                SizedBox(height: 16),
+                Text(
+                  '正在读取设备配置...',
+                  style: TextStyle(color: Color(0xFF5A7A9A), fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 错误状态
+    if (_error != null) {
+      return Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F7FF),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4A90D9).withValues(alpha: 0.2),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                const SizedBox(height: 16),
+                Text(
+                  '读取配置失败',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2D4A6F)),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _error!,
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF5A7A9A)),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _isLoading = true;
+                      _error = null;
+                    });
+                    _loadNodeConfig();
+                  },
+                  child: const Text('重试'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Center(
       child: Material(
         color: Colors.transparent,
@@ -828,8 +944,9 @@ class _DeviceListPageState extends State<DeviceListPage> {
     setState(() => _isLoading = true);
 
     try {
-      // 添加白名单条目 (Tag 0x07)
-      await _service.addWhiteListItem(mac, name);
+      // 使用 addWhiteListItemFull 一次性添加白名单和配置（CMD 0x18）
+      final item = WhiteListItem(mac: mac, name: name);
+      await _service.addWhiteListItemFull(item);
       
       // 提交保存
       await _service.commit();
@@ -1246,6 +1363,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
         return ChildNodeConfigDialog(
           device: device,
           onConfigSaved: _onChildNodeConfigSaved,
+          onLoadNodeConfig: (mac) => _service.readChildNodeConfig(mac),
         );
       },
     );

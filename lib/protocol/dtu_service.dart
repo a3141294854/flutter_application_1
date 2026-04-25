@@ -122,6 +122,11 @@ class DtuService {
     return items;
   }
 
+  /// 读取白名单节点的完整配置
+  Future<WhiteListItem> readChildNodeConfig(String mac) async {
+    return await _bleService.readChildNodeConfig(mac);
+  }
+
   /// 读取功率
   Future<PowerConfig> readPower() async {
     final config = await _bleService.readPower();
@@ -203,7 +208,7 @@ class DtuService {
         }
       }
 
-      // 5.3 添加新条目
+        // 5.3 添加新条目
       final toAdd = newMacs.difference(currentMacs);
       for (final item in whiteList) {
         if (toAdd.contains(item.mac)) {
@@ -255,6 +260,7 @@ class DtuService {
   }
 
   /// 添加白名单条目
+  /// CMD 0x14: BODY = MAC(6) + Tag(1) + name(N)
   Future<void> addWhiteListItem(String mac, String name) async {
     await _bleService.addWhiteListItem(mac, name);
     final newList = List<WhiteListItem>.from(_config.whiteList);

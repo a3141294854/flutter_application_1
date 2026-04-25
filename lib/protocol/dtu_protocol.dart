@@ -14,6 +14,7 @@ class DtuProtocol {
   static const int CMD_READ_ROOT_WL_ALL = 0x04;     // 读取 ROOT 白名单
   static const int CMD_READ_ROOT_POWER = 0x05;      // 读取 ROOT 功率
   static const int CMD_GET_MODE_STATUS = 0x06;      // 获取模式状态
+  static const int CMD_READ_WL_NODE_CFG = 0x07;     // 读取白名单节点配置
 
   /// 写入类命令
   static const int CMD_SET_ROLE = 0x10;             // 设置角色
@@ -23,8 +24,7 @@ class DtuProtocol {
   static const int CMD_ADD_WL_ITEM = 0x14;         // 添加白名单条目
   static const int CMD_DEL_WL_ITEM = 0x15;         // 删除白名单条目
   static const int CMD_CLEAR_WL = 0x16;            // 清空白名单
-  static const int CMD_SET_CHILD_NODE_CFG = 0x17; // 设置子节点配置（Tag 0x08）
-  static const int CMD_SET_WHITE_LIST_FULL = 0x18; // 批量设置白名单及子节点配置
+  static const int CMD_SET_WL_NODE_CFG = 0x17; // 设置白名单节点配置
 
   /// 控制类命令
   static const int CMD_COMMIT = 0x20;              // 提交保存

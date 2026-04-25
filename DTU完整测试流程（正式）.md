@@ -1,4 +1,4 @@
-DTU完整测试流程
+DTU完整测试流程（正式）
 
  DTU 完整测试流程
 
@@ -128,6 +128,8 @@ READ_ROOT_POWER
 
 GET_MODE_STATUS
 
+READ_WL_NODE_CFG
+
 SET_ROLE
 
 SET_UART_CFG
@@ -141,6 +143,8 @@ ADD_WL_ITEM
 DEL_WL_ITEM
 
 CLEAR_WL
+
+SET_WL_NODE_CFG
 
 COMMIT
 
@@ -184,14 +188,15 @@ UART 与 BLE 双通道一致性验证
 
  5.1 读取类
 
-| 指令             | CMD  | 发送报文                |
-| ---------------- | ---- | ----------------------- |
-| READ_DEV_INFO    | 0x01 | AA 55 01 01 00 00 50 18 |
-| READ_UART_CFG    | 0x02 | AA 55 02 02 00 00 A0 5C |
-| READ_MODBUS_CFG  | 0x03 | AA 55 03 03 00 00 F0 60 |
-| READ_ROOT_WL_ALL | 0x04 | AA 55 04 04 00 00 40 D5 |
-| READ_ROOT_POWER  | 0x05 | AA 55 05 05 00 00 10 E9 |
-| GET_MODE_STATUS  | 0x06 | AA 55 06 06 00 00 E0 AD |
+| 指令             | CMD  | 发送报文                                  |
+| ---------------- | ---- | ----------------------------------------- |
+| READ_DEV_INFO    | 0x01 | AA 55 01 01 00 00 50 18                   |
+| READ_UART_CFG    | 0x02 | AA 55 02 02 00 00 A0 5C                   |
+| READ_MODBUS_CFG  | 0x03 | AA 55 03 03 00 00 F0 60                   |
+| READ_ROOT_WL_ALL | 0x04 | AA 55 04 04 00 00 40 D5                   |
+| READ_ROOT_POWER  | 0x05 | AA 55 05 05 00 00 10 E9                   |
+| GET_MODE_STATUS  | 0x06 | AA 55 06 06 00 00 E0 AD                   |
+| READ_WL_NODE_CFG | 0x07 | AA 55 07 07 06 00 A1 A2 A3 A4 A5 A6 80 F3 |
 
  5.2 写入类
 
@@ -205,6 +210,7 @@ UART 与 BLE 双通道一致性验证
 | ADD_WL_ITEM                   | 0x14 | AA 55 14 0A 0E 00 A1 A2 A3 A4 A5 A6 07 44 54 55 5F 4E 30 31 07 7B |
 | DEL_WL_ITEM                   | 0x15 | AA 55 15 0B 06 00 A1 A2 A3 A4 A5 A6 EA BD                    |
 | CLEAR_WL                      | 0x16 | AA 55 16 0C 00 00 C4 6F                                      |
+| SET_WL_NODE_CFG               | 0x17 | AA 55 17 08 0F 00 A1 A2 A3 A4 A5 A6 07 00 01 08 02 01 05 02 05 91 F7 |
 
  5.3 控制类
 
@@ -242,7 +248,7 @@ name
 
 设备名如果 Kconfig 配了 DTU_DEVICE_NAME，优先返回配置名
 
-否则返回 DTU_xxxxxx
+否则返回默认名 DTU_N01
 
  6.2 READ_UART_CFG
 
@@ -278,7 +284,13 @@ data_bits = 0x08
 
 status = 0x00
 
-默认 item_count = 0
+默认 item_count = 8
+
+默认项：
+
+addr = 0..7
+
+dev_type = 0x05
 
  6.4 READ_ROOT_WL_ALL
 
@@ -310,6 +322,16 @@ item_count
 
 items
 
+说明：
+
+此命令只返回白名单基础信息：
+
+mac
+
+name
+
+白名单 node 的子配置需要通过 READ_WL_NODE_CFG 单独读取
+
  6.5 READ_ROOT_POWER
 
 发送：
@@ -321,6 +343,12 @@ items
 非 ROOT：status = 0x06
 
 ROOT：status = 0x00，并返回 power
+
+说明：
+
+node 不单独保存 power
+
+名单内 node 统一跟随 ROOT 当前 power
 
  6.6 GET_MODE_STATUS
 
@@ -360,7 +388,43 @@ reboot_pending
 
 mode_source 现阶段应表现为拨码来源
 
- 6.7 SET_ROLE(ROOT)
+ 6.7 READ_WL_NODE_CFG
+
+发送：
+
+
+
+说明：
+
+body 为目标白名单 node 的 mac(6)
+
+预期：
+
+非 ROOT：status = 0x06
+
+找不到目标 MAC：status = 0x08
+
+成功时返回：
+
+status
+
+uart_cfg(4)
+
+modbus_count
+
+(addr + dev_type) * N
+
+补充说明：
+
+node 子配置只包含：
+
+uart_cfg
+
+modbus
+
+power 不在这里单独保存，统一由 ROOT 的 power 决定
+
+ 6.8 SET_ROLE(ROOT)
 
 发送：
 
@@ -380,7 +444,7 @@ status = 0x00
 
 持久化需 COMMIT
 
- 6.8 SET_ROLE(NODE)
+ 6.9 SET_ROLE(NODE)
 
 发送：
 
@@ -390,7 +454,7 @@ status = 0x00
 
 status = 0x00
 
- 6.9 SET_UART_CFG
+ 6.10 SET_UART_CFG
 
 发送：
 
@@ -418,7 +482,7 @@ status = 0x00
 
 必须 COMMIT + REBOOT 后才按新配置生效
 
- 6.10 SET_MODBUS_CFG
+ 6.11 SET_MODBUS_CFG
 
 发送：
 
@@ -442,7 +506,7 @@ status = 0x00
 
 再读 READ_MODBUS_CFG 时应返回两项
 
- 6.11 SET_ROOT_POWER
+ 6.12 SET_ROOT_POWER
 
 发送：
 
@@ -454,7 +518,7 @@ status = 0x00
 
 当前角色是 ROOT：status = 0x00
 
- 6.12 ADD_WL_ITEM
+ 6.13 ADD_WL_ITEM
 
 发送：
 
@@ -474,7 +538,19 @@ ROOT 且空间足够：status = 0x00
 
 白名单满：status = 0x07
 
- 6.13 DEL_WL_ITEM
+补充说明：
+
+新建白名单项时，会自动初始化该 node 的子配置
+
+默认继承当前 ROOT 运行配置中的：
+
+uart_cfg
+
+modbus 预设
+
+后续可通过 SET_WL_NODE_CFG 单独修改
+
+ 6.14 DEL_WL_ITEM
 
 发送：
 
@@ -488,7 +564,7 @@ ROOT 且空间足够：status = 0x00
 
 删除成功：status = 0x00
 
- 6.14 CLEAR_WL
+ 6.15 CLEAR_WL
 
 发送：
 
@@ -500,7 +576,51 @@ ROOT 且空间足够：status = 0x00
 
 ROOT：status = 0x00
 
- 6.15 COMMIT
+ 6.16 SET_WL_NODE_CFG
+
+发送：
+
+
+
+说明：
+
+body 格式：
+
+mac(6)
+
+uart_cfg(4)
+
+modbus_count(1)
+
+(addr + dev_type) * N
+
+上例表示：
+
+对 A1:A2:A3:A4:A5:A6
+
+设置 node 串口为 115200 8N1
+
+设置 node modbus 为 2 项：
+
+addr=1 dev_type=0x05
+
+addr=2 dev_type=0x05
+
+预期：
+
+非 ROOT：status = 0x06
+
+找不到目标 MAC：status = 0x08
+
+成功：status = 0x00
+
+验证点：
+
+发完后立刻发送 READ_WL_NODE_CFG
+
+应返回刚才写入的子配置
+
+ 6.17 COMMIT
 
 发送：
 
@@ -520,7 +640,7 @@ DTU commit ...
 
 DTU commit snapshot ...
 
- 6.16 REBOOT
+ 6.18 REBOOT
 
 发送：
 
@@ -540,7 +660,7 @@ status = 0x00
 
 配置应按 COMMIT 后内容恢复
 
- 6.17 FACTORY_RESET
+ 6.19 FACTORY_RESET
 
 发送：
 
@@ -557,6 +677,12 @@ status = 0x00
 角色、串口、Modbus、功率、白名单恢复默认
 
 模式仍由 GPIO13 决定
+
+默认 Modbus 预设恢复为 8 项：
+
+addr = 0..7
+
+dev_type = 0x05
 
  7. 配置模式完整联调用例
 

@@ -87,34 +87,43 @@ class DebugLogService {
   /// 获取命令名称
   static String getCmdName(int cmd) {
     switch (cmd) {
-      case 0x01: return 'READ_DEV_INFO';      // 读取设备信息
-      case 0x02: return 'READ_UART_CFG';     // 读取串口配置
-      case 0x03: return 'READ_MODBUS_CFG';   // 读取Modbus配置
-      case 0x04: return 'READ_ROOT_WL_ALL';   // 读取ROOT白名单
-      case 0x05: return 'READ_ROOT_POWER';   // 读取ROOT功率
-      case 0x06: return 'GET_MODE_STATUS';    // 获取模式状态
-      case 0x10: return 'SET_ROLE';           // 设置角色
-      case 0x11: return 'SET_UART_CFG';       // 设置串口配置
-      case 0x12: return 'SET_MODBUS_CFG';     // 设置Modbus配置
-      case 0x13: return 'SET_ROOT_POWER';    // 设置ROOT功率
-      case 0x14: return 'ADD_WL_ITEM';        // 添加白名单
-      case 0x15: return 'DEL_WL_ITEM';        // 删除白名单
-      case 0x16: return 'CLEAR_WL';           // 清空白名单
-      case 0x17: return 'SET_CHILD_NODE_CFG'; // 设置子节点配置
-      case 0x18: return 'SET_WHITE_LIST_FULL';// 批量设置白名单
-      case 0x20: return 'COMMIT';             // 提交保存
-      case 0x21: return 'REBOOT';             // 重启设备
-      case 0x22: return 'FACTORY_RESET';      // 恢复出厂
+      // 读取类命令 (0x01-0x07)
+      case 0x01: return 'READ_DEV_INFO';
+      case 0x02: return 'READ_UART_CFG';
+      case 0x03: return 'READ_MODBUS_CFG';
+      case 0x04: return 'READ_ROOT_WL_ALL';
+      case 0x05: return 'READ_ROOT_POWER';
+      case 0x06: return 'GET_MODE_STATUS';
+      case 0x07: return 'READ_WL_NODE_CFG';
+      // 写入类命令 (0x10-0x17)
+      case 0x10: return 'SET_ROLE';
+      case 0x11: return 'SET_UART_CFG';
+      case 0x12: return 'SET_MODBUS_CFG';
+      case 0x13: return 'SET_ROOT_POWER';
+      case 0x14: return 'ADD_WL_ITEM';
+      case 0x15: return 'DEL_WL_ITEM';
+      case 0x16: return 'CLEAR_WL';
+      case 0x17: return 'SET_WL_NODE_CFG';
+      // 控制类命令 (0x20-0x22)
+      case 0x20: return 'COMMIT';
+      case 0x21: return 'REBOOT';
+      case 0x22: return 'FACTORY_RESET';
+      // 响应命令 (CMD | 0x80)
       case 0x81: return 'READ_DEV_INFO_RSP';
       case 0x82: return 'READ_UART_CFG_RSP';
       case 0x83: return 'READ_MODBUS_CFG_RSP';
       case 0x84: return 'READ_ROOT_WL_ALL_RSP';
       case 0x85: return 'READ_ROOT_POWER_RSP';
       case 0x86: return 'GET_MODE_STATUS_RSP';
+      case 0x87: return 'READ_WL_NODE_CFG_RSP';
       case 0x90: return 'SET_ROLE_RSP';
       case 0x91: return 'SET_UART_CFG_RSP';
       case 0x92: return 'SET_MODBUS_CFG_RSP';
       case 0x93: return 'SET_ROOT_POWER_RSP';
+      case 0x94: return 'ADD_WL_ITEM_RSP';
+      case 0x95: return 'DEL_WL_ITEM_RSP';
+      case 0x96: return 'CLEAR_WL_RSP';
+      case 0x97: return 'SET_WL_NODE_CFG_RSP';
       case 0xA0: return 'COMMIT_RSP';
       case 0xA1: return 'REBOOT_RSP';
       case 0xA2: return 'FACTORY_RESET_RSP';
@@ -175,7 +184,6 @@ class DebugLogService {
           return '📤 【删除白名单】从白名单中移除指定MAC设备';
         case 0x16: return '📤 【清空白名单】移除所有白名单设备（谨慎操作）';
         case 0x17: return '📤 【设置子节点配置】配置NODE设备的下位机参数（串口+Modbus）';
-        case 0x18: return '📤 【批量设置白名单】一次性设置多个白名单设备';
         case 0x20: return '📤 【提交保存】将所有配置写入Flash永久保存（必须操作！）';
         case 0x21: return '📤 【重启设备】重启DTU使配置生效';
         case 0x22: return '📤 【恢复出厂】清除所有配置恢复默认（谨慎操作！）';
@@ -233,6 +241,10 @@ class DebugLogService {
         case 0x91: return '📥 【设置串口响应】 $statusDesc';
         case 0x92: return '📥 【设置Modbus响应】 $statusDesc';
         case 0x93: return '📥 【设置功率响应】 $statusDesc';
+        case 0x94: return '📥 【添加白名单响应】 $statusDesc';
+        case 0x95: return '📥 【删除白名单响应】 $statusDesc';
+        case 0x96: return '📥 【清空白名单响应】 $statusDesc';
+        case 0x97: return '📥 【设置子节点配置响应】 $statusDesc';
         case 0xA0: return '📥 【提交保存响应】配置已写入Flash $statusDesc';
         case 0xA1: return '📥 【重启响应】设备正在重启... $statusDesc';
         case 0xA2: return '📥 【恢复出厂响应】所有配置已清除 $statusDesc';
@@ -667,6 +679,17 @@ class BleService {
     return allItems;
   }
 
+  /// 读取白名单节点的完整配置（Tag 0x08）
+  /// BODY: MAC(6)
+  /// 返回: WhiteListItem 包含完整的串口和 Modbus 配置
+  Future<WhiteListItem> readChildNodeConfig(String mac) async {
+    final result = await sendAndWait(DtuFrame.buildReadChildNodeConfig(mac));
+    if (!result.isSuccess) {
+      throw FormatException('读取节点配置失败: ${result.error}');
+    }
+    return WhiteListItem.fromTag08(result.body!.sublist(1)); // 跳过 status 字节
+  }
+
   /// 读取功率
   Future<PowerConfig> readPower() async {
     final result = await sendAndWait(DtuFrame.buildReadPower());
@@ -732,35 +755,32 @@ class BleService {
   }
 
   /// 添加白名单条目
+  /// CMD 0x14: BODY = MAC(6) + Tag(1) + name(N)
   Future<void> addWhiteListItem(String mac, String name) async {
     await _checkStatus(DtuFrame.buildAddWhiteListItem(mac, name));
   }
 
   /// 添加完整的白名单条目（包含串口参数和 Modbus 配置）
-  /// BODY: MAC(6) + name_len(1) + name + 波特率(1) + 数据位(1) + 停止位(1) + 校验位(1) + 从站个数(1) + (addr+dev_type)×N
+  /// 按文档采用两步法:
+  /// 1. CMD 0x14 (ADD_WL_ITEM) - 添加基础信息（MAC + name）
+  /// 2. CMD 0x17 (SET_WL_NODE_CFG) - 设置子节点详细配置（uart + modbus）
   Future<void> addWhiteListItemFull(WhiteListItem item) async {
-    final modbusBytes = item.modbusItems.expand((e) => [e.addr, e.devType]).toList();
-    await _checkStatus(DtuFrame.buildSetWhiteListFull(
-      mac: item.mac,
-      name: item.name,
-      baudLevel: item.baudLevel,
-      dataBits: item.dataBits,
-      stopBits: item.stopBits,
-      parity: item.parity,
-      modbusAddresses: modbusBytes,
-    ));
+    // 步骤1: 添加基础信息 (CMD 0x14)
+    await addWhiteListItem(item.mac, item.name);
+    // 步骤2: 设置子节点配置 (CMD 0x17)
+    await setChildNodeConfig(item);
   }
 
   /// 设置子节点配置（Tag 0x08）
-  /// BODY: MAC(6) + 波特率(1) + 数据位(1) + 停止位(1) + 校验位(1) + 从站个数(1) + (addr+dev_type)×N
+  /// BODY: MAC(6) + 波特率(1) + 校验位(1) + 停止位(1) + 数据位(1) + 从站个数(1) + (addr+dev_type)×N
   Future<void> setChildNodeConfig(WhiteListItem item) async {
     final modbusItems = item.modbusItems.map((item) => {'addr': item.addr, 'dev_type': item.devType}).toList();
     await _checkStatus(DtuFrame.buildSetChildNodeConfig(
       mac: item.mac,
       baudLevel: item.baudLevel,
-      dataBits: item.dataBits,
-      stopBits: item.stopBits,
       parity: item.parity,
+      stopBits: item.stopBits,
+      dataBits: item.dataBits,
       modbusItems: modbusItems,
     ));
   }

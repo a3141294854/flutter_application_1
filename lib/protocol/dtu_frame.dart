@@ -2,7 +2,6 @@
 /// 实现帧格式: SOF(2) + CMD(1) + SEQ(1) + LEN(2) + BODY(N) + CRC16(2)
 
 import 'package:flutter/foundation.dart';
-import 'dart:typed_data';
 import 'dtu_protocol.dart';
 
 /// 协议帧封装与解析工具
@@ -81,6 +80,13 @@ class DtuFrame {
     return buildFrame(DtuProtocol.CMD_READ_ROOT_WL_ALL);
   }
 
+  /// 构建读取白名单节点配置请求
+  /// BODY: MAC(6)
+  static Uint8List buildReadChildNodeConfig(String mac) {
+    final macBytes = _parseMac(mac);
+    return buildFrame(DtuProtocol.CMD_READ_WL_NODE_CFG, body: macBytes);
+  }
+
   /// 构建功率读取请求
   static Uint8List buildReadPower() {
     return buildFrame(DtuProtocol.CMD_READ_ROOT_POWER);
@@ -126,67 +132,44 @@ class DtuFrame {
     return buildFrame(DtuProtocol.CMD_SET_ROOT_POWER, body: [power]);
   }
 
+  /// 白名单条目 Tag (CMD 0x14)
+  static const int WL_TAG = 0x07;
+
   /// 构建添加白名单条目请求
+  /// BODY: MAC(6) + Tag(1) + name(N)
+  /// Tag 固定为 0x07 表示白名单条目
+  /// 示例: AA 55 14 SEQ 0E 00 MAC(6) 07 "DTU_N01" CRC(2)
   static Uint8List buildAddWhiteListItem(String mac, String name) {
     final macBytes = _parseMac(mac);
     final nameBytes = name.codeUnits;
     return buildFrame(
       DtuProtocol.CMD_ADD_WL_ITEM,
-      body: [...macBytes, nameBytes.length, ...nameBytes],
+      body: [...macBytes, WL_TAG, ...nameBytes],
     );
   }
 
   /// 构建设置子节点配置请求（Tag 0x08）
-  /// BODY: MAC(6) + 波特率(1) + 数据位(1) + 停止位(1) + 校验位(1) + 从站个数(1) + (addr+dev_type)×N
+  /// BODY: MAC(6) + 波特率(1) + 校验位(1) + 停止位(1) + 数据位(1) + 从站个数(1) + (addr+dev_type)×N
   static Uint8List buildSetChildNodeConfig({
     required String mac,
     required int baudLevel,
-    required int dataBits,
-    required int stopBits,
     required int parity,
+    required int stopBits,
+    required int dataBits,
     required List<Map<String, int>> modbusItems,
   }) {
     final macBytes = _parseMac(mac);
     final modbusBytes = modbusItems.expand((item) => [item['addr'] ?? 0, item['dev_type'] ?? 0]).toList();
     return buildFrame(
-      DtuProtocol.CMD_SET_CHILD_NODE_CFG,
+      DtuProtocol.CMD_SET_WL_NODE_CFG,
       body: [
         ...macBytes,
         baudLevel,
-        dataBits,
-        stopBits,
         parity,
+        stopBits,
+        dataBits,
         modbusItems.length,
         ...modbusBytes,
-      ],
-    );
-  }
-
-  /// 构建批量设置白名单及子节点配置请求（Tag 0x07 + 0x08）
-  /// 用于一次性设置完整的白名单条目
-  static Uint8List buildSetWhiteListFull({
-    required String mac,
-    required String name,
-    required int baudLevel,
-    required int dataBits,
-    required int stopBits,
-    required int parity,
-    required List<int> modbusAddresses,
-  }) {
-    final macBytes = _parseMac(mac);
-    final nameBytes = name.codeUnits;
-    return buildFrame(
-      DtuProtocol.CMD_SET_WHITE_LIST_FULL,
-      body: [
-        ...macBytes,          // MAC 地址
-        nameBytes.length,    // 名称长度
-        ...nameBytes,        // 名称
-        baudLevel,          // 波特率
-        dataBits,           // 数据位
-        stopBits,           // 停止位
-        parity,             // 校验位
-        modbusAddresses.length,  // Modbus 从站个数
-        ...modbusAddresses, // 从站地址列表
       ],
     );
   }

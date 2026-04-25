@@ -261,15 +261,15 @@ class DtuFrame {
   }
 
   /// 从流中搜索并解析帧
-  /// 返回解析结果列表（可能有多帧）
-  static List<ParseResult> parseStream(Uint8List data) {
+  /// 返回解析结果与剩余未处理的字节
+  static ParseStreamResult parseStream(Uint8List data) {
     final results = <ParseResult>[];
     int offset = 0;
 
     // 调试日志：显示收到的原始数据
     debugPrint('[DtuFrame] parseStream 收到 ${data.length} 字节: ${bytesToHex(data)}');
 
-    while (offset < data.length - 6) {
+    while (offset <= data.length - 7) {
       // 查找 SOF (0xAA55)
       int sofIndex = -1;
       for (int i = offset; i < data.length - 1; i++) {
@@ -284,29 +284,28 @@ class DtuFrame {
         break;
       }
 
-      debugPrint('[DtuFrame] 找到 SOF at index=$sofIndex');
+      if (sofIndex > offset) {
+        debugPrint('[DtuFrame] 丢弃无效前导字节: ${bytesToHex(data.sublist(offset, sofIndex))}');
+      }
 
-      // 尝试解析从 SOF 开始的帧
-      final remaining = data.length - sofIndex;
+      offset = sofIndex;
+      final remaining = data.length - offset;
       if (remaining < 7) {
-        debugPrint('[DtuFrame] 数据不足 (remaining=$remaining < 7)');
+        debugPrint('[DtuFrame] 数据不足 (remaining=$remaining < 7), 保留部分缓冲区');
         break;
       }
 
-      final frameData = Uint8List.view(data.buffer, data.offsetInBytes + sofIndex);
-
-      // 尝试获取 LEN
+      final frameData = Uint8List.view(data.buffer, data.offsetInBytes + offset);
       final len = frameData[4] | (frameData[5] << 8); // 小端
       final minFrameLen = 8 + len; // 2(SOF) + 1(CMD) + 1(SEQ) + 2(LEN) + N(BODY) + 2(CRC)
 
       debugPrint('[DtuFrame] LEN=$len, minFrameLen=$minFrameLen, remaining=$remaining');
 
       if (remaining < minFrameLen) {
-        offset = sofIndex + 1;
-        continue;
+        debugPrint('[DtuFrame] 当前帧不完整，保留 ${data.length - offset} 字节等待后续数据');
+        break;
       }
 
-      // 截取完整帧
       final completeFrame = Uint8List(minFrameLen);
       completeFrame.setRange(0, minFrameLen, frameData);
 
@@ -317,16 +316,17 @@ class DtuFrame {
 
       if (result.isSuccess) {
         results.add(result);
-        offset = sofIndex + minFrameLen;
+        offset += minFrameLen;
         debugPrint('[DtuFrame] 帧解析成功! offset 移动到 $offset');
       } else {
-        offset = sofIndex + 1;
-        debugPrint('[DtuFrame] 帧解析失败，offset 移动到 $offset');
+        debugPrint('[DtuFrame] 帧解析失败，跳过一个字节继续搜索');
+        offset += 1;
       }
     }
 
-    debugPrint('[DtuFrame] parseStream 完成，找到 ${results.length} 个有效帧');
-    return results;
+    final remainingBytes = offset < data.length ? Uint8List.fromList(data.sublist(offset)) : Uint8List(0);
+    debugPrint('[DtuFrame] parseStream 完成，找到 ${results.length} 个有效帧, 剩余 ${remainingBytes.length} 字节');
+    return ParseStreamResult(results: results, remaining: remainingBytes);
   }
 
   // ========== 工具方法 ==========
@@ -388,6 +388,14 @@ class DtuFrame {
   static String bytesToHex(Uint8List bytes, {String separator = ' '}) {
     return bytes.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(separator);
   }
+}
+
+/// 解析流结果
+class ParseStreamResult {
+  final List<ParseResult> results;
+  final Uint8List remaining;
+
+  ParseStreamResult({required this.results, required this.remaining});
 }
 
 /// 解析结果

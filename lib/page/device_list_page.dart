@@ -9,11 +9,7 @@ class QRScanResult {
   final String mac;
   final String role;
 
-  QRScanResult({
-    required this.name,
-    required this.mac,
-    required this.role,
-  });
+  QRScanResult({required this.name, required this.mac, required this.role});
 
   /// 从字符串解析二维码内容，支持多种格式
   static QRScanResult? fromString(String content) {
@@ -34,10 +30,12 @@ class QRScanResult {
         if (nMatch != null && name == null) name = nMatch.group(1);
 
         final macMatch = RegExp(r'"mac"\s*:\s*"([^"]+)"').firstMatch(content);
-        if (macMatch != null) mac = macMatch.group(1)?.replaceAll('-', ':').toUpperCase();
+        if (macMatch != null)
+          mac = macMatch.group(1)?.replaceAll('-', ':').toUpperCase();
 
         final mMatch = RegExp(r'"m"\s*:\s*"([^"]+)"').firstMatch(content);
-        if (mMatch != null && mac == null) mac = mMatch.group(1)?.replaceAll('-', ':').toUpperCase();
+        if (mMatch != null && mac == null)
+          mac = mMatch.group(1)?.replaceAll('-', ':').toUpperCase();
 
         final roleMatch = RegExp(r'"role"\s*:\s*"([^"]+)"').firstMatch(content);
         if (roleMatch != null) role = roleMatch.group(1);
@@ -53,7 +51,11 @@ class QRScanResult {
       final parts = content.split(':');
       if (parts.length >= 3) {
         final name = parts[1].trim();
-        final mac = parts.sublist(2).join(':').replaceAll('-', ':').toUpperCase();
+        final mac = parts
+            .sublist(2)
+            .join(':')
+            .replaceAll('-', ':')
+            .toUpperCase();
         if (isValidMac(mac)) {
           return QRScanResult(name: name, mac: mac, role: 'unknown');
         }
@@ -99,7 +101,7 @@ class QRScanResult {
   }
 }
 
-/// 子设备参数配置对话框
+/// 子设备参数配置对话框（重构版）
 class ChildNodeConfigDialog extends StatefulWidget {
   final WhiteListItem device;
   final Function(WhiteListItem) onConfigSaved;
@@ -117,57 +119,140 @@ class ChildNodeConfigDialog extends StatefulWidget {
 }
 
 class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
+  // 串口参数
   late int _baudLevel;
   late int _dataBits;
   late int _stopBits;
   late int _parity;
+
+  // Modbus 配置
+  List<ModbusItem> _modbusItems = [];
+  final List<TextEditingController> _addrControllers = [];
+
+  // UI 状态
   bool _isLoading = true;
   String? _error;
+  bool _dataLoaded = false;
+  bool _hasChanges = false;
 
   @override
   void initState() {
     super.initState();
-    // 使用默认值作为初始值
+    // 初始化显示为当前白名单项配置
     _baudLevel = widget.device.baudLevel;
     _dataBits = widget.device.dataBits;
     _stopBits = widget.device.stopBits;
     _parity = widget.device.parity;
-    // 从设备读取真实配置
-    _loadNodeConfig();
+    _modbusItems = List.from(widget.device.modbusItems);
+    _syncModbusControllers();
+
+    // 立即从设备读取真实配置
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadNodeConfig();
+    });
   }
 
   Future<void> _loadNodeConfig() async {
+    if (_dataLoaded) return;
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
     try {
+      print('[ChildNodeConfig] 正在读取设备配置，MAC: ${widget.device.mac}');
       final nodeConfig = await widget.onLoadNodeConfig(widget.device.mac);
+
+      print(
+        '[ChildNodeConfig] 读取到的配置: '
+        'baudLevel=${nodeConfig.baudLevel}, '
+        'dataBits=${nodeConfig.dataBits}, '
+        'stopBits=${nodeConfig.stopBits}, '
+        'parity=${nodeConfig.parity}, '
+        'modbusItems=${nodeConfig.modbusItems.length}',
+      );
+
       if (mounted) {
         setState(() {
+          // 仅更新从设备读取到的实际值
           _baudLevel = nodeConfig.baudLevel;
           _dataBits = nodeConfig.dataBits;
           _stopBits = nodeConfig.stopBits;
           _parity = nodeConfig.parity;
+          _modbusItems = List.from(nodeConfig.modbusItems);
+          _syncModbusControllers();
           _isLoading = false;
+          _dataLoaded = true;
+          _hasChanges = false;
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('[ChildNodeConfig] 读取配置失败: $e');
+      print('Stack trace: $stackTrace');
+
       if (mounted) {
         setState(() {
           _error = e.toString();
           _isLoading = false;
+          // 仍然显示UI，但保留从widget.device获取的初始值
         });
       }
     }
   }
 
   void _submit() {
+    if (_isLoading || !_hasChanges) return;
+
     final updatedDevice = widget.device.copyWithFull(
       baudLevel: _baudLevel,
       dataBits: _dataBits,
       stopBits: _stopBits,
       parity: _parity,
+      modbusItems: _modbusItems,
+    );
+
+    print(
+      '[ChildNodeConfig] 保存配置: '
+      'baudLevel=$_baudLevel, '
+      'dataBits=$_dataBits, '
+      'stopBits=$_stopBits, '
+      'parity=$_parity, '
+      'modbusCount=${_modbusItems.length}',
     );
 
     widget.onConfigSaved(updatedDevice);
     Navigator.pop(context);
+  }
+
+  void _markChanged() {
+    if (!_hasChanges) {
+      setState(() {
+        _hasChanges = true;
+      });
+    }
+  }
+
+  void _syncModbusControllers() {
+    while (_addrControllers.length < _modbusItems.length) {
+      _addrControllers.add(TextEditingController());
+    }
+
+    while (_addrControllers.length > _modbusItems.length) {
+      _addrControllers.removeLast().dispose();
+    }
+
+    for (int i = 0; i < _modbusItems.length; i++) {
+      _addrControllers[i].text = '${_modbusItems[i].addr}';
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _addrControllers) {
+      controller.dispose();
+    }
+    super.dispose();
   }
 
   @override
@@ -233,12 +318,19 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
                 const SizedBox(height: 16),
                 Text(
                   '读取配置失败',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2D4A6F)),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2D4A6F),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   _error!,
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF5A7A9A)),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF5A7A9A),
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
@@ -284,7 +376,11 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
                 // 标题
                 Row(
                   children: [
-                    const Icon(Icons.settings_input_component, color: Color(0xFF4A90D9), size: 22),
+                    const Icon(
+                      Icons.settings_input_component,
+                      color: Color(0xFF4A90D9),
+                      size: 22,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Column(
@@ -292,11 +388,18 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
                         children: [
                           const Text(
                             '配置子设备参数',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2D4A6F)),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2D4A6F),
+                            ),
                           ),
                           Text(
                             widget.device.name,
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF5A7A9A)),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF5A7A9A),
+                            ),
                           ),
                         ],
                       ),
@@ -349,43 +452,49 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
                 // 数据位、停止位、校验位
                 Row(
                   children: [
-                    Expanded(child: _buildDropdownField('数据位', _dataBits, [7, 8], (v) => _dataBits = v)),
+                    Expanded(
+                      child: _buildDropdownField('数据位', _dataBits, [
+                        7,
+                        8,
+                      ], (v) => _dataBits = v),
+                    ),
                     const SizedBox(width: 8),
-                    Expanded(child: _buildDropdownField('停止位', _stopBits, [1, 2], (v) => _stopBits = v)),
+                    Expanded(
+                      child: _buildDropdownField('停止位', _stopBits, [
+                        1,
+                        2,
+                      ], (v) => _stopBits = v),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(child: _buildParityDropdown()),
                   ],
                 ),
                 const SizedBox(height: 16),
 
-                // 提示信息
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF3E0),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline, color: Color(0xFFFF9800), size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '白名单子设备仅支持串口配置，Modbus 参数由子设备自身决定',
-                          style: TextStyle(fontSize: 11, color: Colors.orange[800]),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                // Modbus 配置
+                _buildSectionTitle('Modbus 配置', Icons.memory),
+                const SizedBox(height: 8),
+                _buildModbusConfig(),
                 const SizedBox(height: 20),
 
                 // 按钮
                 Row(
                   children: [
-                    Expanded(child: _DialogButton(label: '取消', isPrimary: false, onPressed: () => Navigator.pop(context))),
+                    Expanded(
+                      child: _DialogButton(
+                        label: '取消',
+                        isPrimary: false,
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    Expanded(child: _DialogButton(label: '保存配置', isPrimary: true, onPressed: _submit)),
+                    Expanded(
+                      child: _DialogButton(
+                        label: '保存配置',
+                        isPrimary: true,
+                        onPressed: _hasChanges && !_isLoading ? _submit : null,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -401,16 +510,31 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
       children: [
         Icon(icon, color: const Color(0xFF4A90D9), size: 16),
         const SizedBox(width: 6),
-        Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF2D4A6F))),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF2D4A6F),
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildLabel(String text) {
-    return Text(text, style: const TextStyle(fontSize: 12, color: Color(0xFF5A7A9A)));
+    return Text(
+      text,
+      style: const TextStyle(fontSize: 12, color: Color(0xFF5A7A9A)),
+    );
   }
 
-  Widget _buildDropdownField(String label, int value, List<int> items, Function(int) onChanged) {
+  Widget _buildDropdownField(
+    String label,
+    int value,
+    List<int> items,
+    Function(int) onChanged,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -426,9 +550,14 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
             child: DropdownButton<int>(
               value: value,
               isExpanded: true,
-              items: items.map((e) => DropdownMenuItem(value: e, child: Text('$e'))).toList(),
+              items: items
+                  .map((e) => DropdownMenuItem(value: e, child: Text('$e')))
+                  .toList(),
               onChanged: (v) {
-                if (v != null) setState(() => onChanged(v));
+                if (v != null) {
+                  setState(() => onChanged(v));
+                  _markChanged();
+                }
               },
             ),
           ),
@@ -454,12 +583,26 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
               value: _parity,
               isExpanded: true,
               items: const [
-                DropdownMenuItem(value: DtuProtocol.PARITY_NONE, child: Text('无')),
-                DropdownMenuItem(value: DtuProtocol.PARITY_ODD, child: Text('奇')),
-                DropdownMenuItem(value: DtuProtocol.PARITY_EVEN, child: Text('偶')),
+                DropdownMenuItem(
+                  value: DtuProtocol.PARITY_NONE,
+                  child: Text('无'),
+                ),
+                DropdownMenuItem(
+                  value: DtuProtocol.PARITY_ODD,
+                  child: Text('奇'),
+                ),
+                DropdownMenuItem(
+                  value: DtuProtocol.PARITY_EVEN,
+                  child: Text('偶'),
+                ),
               ],
               onChanged: (v) {
-                if (v != null) setState(() => _parity = v);
+                if (v != null) {
+                  setState(() {
+                    _parity = v;
+                  });
+                  _markChanged();
+                }
               },
             ),
           ),
@@ -467,10 +610,197 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
       ],
     );
   }
+
+  Widget _buildModbusConfig() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Modbus 设备列表
+        ..._modbusItems.asMap().entries.map((entry) {
+          final index = entry.key;
+          final item = entry.value;
+          return _buildModbusItem(index, item);
+        }),
+        const SizedBox(height: 8),
+        // 添加按钮
+        GestureDetector(
+          onTap: _modbusItems.length < 8
+              ? () {
+                  setState(() {
+                    _modbusItems.add(
+                      ModbusItem(addr: _modbusItems.length + 1, devType: 0x05),
+                    );
+                    _syncModbusControllers();
+                    _markChanged();
+                  });
+                }
+              : null,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: _modbusItems.length < 8
+                  ? const Color(0xFFF0F7FF)
+                  : const Color(0xFFEDEDED),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: const Color(0xFF4A90D9),
+                style: BorderStyle.solid,
+              ),
+            ),
+            child: Center(
+              child: Text(
+                _modbusItems.length < 8 ? '+ 添加 Modbus 设备' : '已达到最大数量',
+                style: TextStyle(
+                  color: _modbusItems.length < 8
+                      ? const Color(0xFF4A90D9)
+                      : const Color(0xFF9AA8C3),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildModbusItem(int index, ModbusItem item) {
+    final addrController = _addrControllers[index];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE8F2FF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '设备 ${index + 1}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF2D4A6F),
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  if (_modbusItems.length > 1) {
+                    setState(() {
+                      _modbusItems.removeAt(index);
+                      _syncModbusControllers();
+                      _markChanged();
+                    });
+                  }
+                },
+                child: const Icon(
+                  Icons.close,
+                  size: 16,
+                  color: Color(0xFFE85C5C),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildLabel('从站地址 (1-247)'),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: addrController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(fontSize: 13),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        filled: true,
+                        fillColor: const Color(0xFFF5F5F5),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 8,
+                        ),
+                      ),
+                      onChanged: (v) {
+                        final addr = int.tryParse(v);
+                        if (addr != null && addr >= 1 && addr <= 247) {
+                          setState(() {
+                            _modbusItems[index] = ModbusItem(
+                              addr: addr,
+                              devType: item.devType,
+                            );
+                          });
+                          _markChanged();
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildLabel('设备类型'),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F5F5),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int>(
+                          value: item.devType,
+                          isExpanded: true,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF2D4A6F),
+                          ),
+                          items: DtuProtocol.deviceTypeNames.entries.map((e) {
+                            return DropdownMenuItem(
+                              value: e.key,
+                              child: Text(e.value),
+                            );
+                          }).toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() {
+                                _modbusItems[index] = ModbusItem(
+                                  addr: item.addr,
+                                  devType: v,
+                                );
+                                _markChanged();
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
-
-
-
 
 /// 二维码扫描对话框
 class QRScannerDialog extends StatefulWidget {
@@ -585,25 +915,31 @@ class _QRScannerDialogState extends State<QRScannerDialog> {
                       children: [
                         CircularProgressIndicator(color: Colors.white),
                         SizedBox(height: 16),
-                        Text('正在启动摄像头...', style: TextStyle(color: Colors.white70)),
+                        Text(
+                          '正在启动摄像头...',
+                          style: TextStyle(color: Colors.white70),
+                        ),
                       ],
                     ),
                   )
                 else if (_controller != null)
-                  MobileScanner(
-                    controller: _controller!,
-                    onDetect: _onDetect,
-                  )
+                  MobileScanner(controller: _controller!, onDetect: _onDetect)
                 else
                   const Center(
-                    child: Text('摄像头启动失败', style: TextStyle(color: Colors.orange)),
+                    child: Text(
+                      '摄像头启动失败',
+                      style: TextStyle(color: Colors.orange),
+                    ),
                   ),
                 // 扫描框
                 Container(
                   width: 240,
                   height: 240,
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 2),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      width: 2,
+                    ),
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
@@ -723,19 +1059,30 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
               // 标题
               Row(
                 children: [
-                  const Icon(Icons.add_circle_outline, color: Color(0xFF4A90D9), size: 22),
+                  const Icon(
+                    Icons.add_circle_outline,
+                    color: Color(0xFF4A90D9),
+                    size: 22,
+                  ),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
                       '添加子设备到白名单',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2D4A6F)),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2D4A6F),
+                      ),
                     ),
                   ),
                   // 扫码按钮
                   GestureDetector(
                     onTap: _showQRScanner,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF4A90D9).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -744,7 +1091,11 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.qr_code_scanner, color: Color(0xFF4A90D9), size: 16),
+                          Icon(
+                            Icons.qr_code_scanner,
+                            color: Color(0xFF4A90D9),
+                            size: 16,
+                          ),
                           SizedBox(width: 4),
                           Text(
                             '扫码',
@@ -779,15 +1130,42 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                   isDense: true,
                   filled: true,
                   fillColor: Colors.white,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _nameError != null ? Colors.red : Colors.transparent)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _nameError != null ? Colors.red.shade200 : Colors.transparent)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _nameError != null ? Colors.red : const Color(0xFF4A90D9))),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(
+                      color: _nameError != null
+                          ? Colors.red
+                          : Colors.transparent,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(
+                      color: _nameError != null
+                          ? Colors.red.shade200
+                          : Colors.transparent,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(
+                      color: _nameError != null
+                          ? Colors.red
+                          : const Color(0xFF4A90D9),
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                 ),
               ),
               if (_nameError != null) ...[
                 const SizedBox(height: 4),
-                Text(_nameError!, style: const TextStyle(color: Colors.red, fontSize: 11)),
+                Text(
+                  _nameError!,
+                  style: const TextStyle(color: Colors.red, fontSize: 11),
+                ),
               ],
               const SizedBox(height: 12),
 
@@ -802,26 +1180,62 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                   hintText: 'AA:BB:CC:DD:EE:FF',
                   isDense: true,
                   filled: true,
-                  fillColor: _fromQRCode ? const Color(0xFFE8F9F0) : Colors.white,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _macError != null ? Colors.red : Colors.transparent)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _macError != null ? Colors.red.shade200 : const Color(0xFFE8F9F0))),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _macError != null ? Colors.red : const Color(0xFF4A90D9))),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  fillColor: _fromQRCode
+                      ? const Color(0xFFE8F9F0)
+                      : Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(
+                      color: _macError != null
+                          ? Colors.red
+                          : Colors.transparent,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(
+                      color: _macError != null
+                          ? Colors.red.shade200
+                          : const Color(0xFFE8F9F0),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(
+                      color: _macError != null
+                          ? Colors.red
+                          : const Color(0xFF4A90D9),
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   suffixIcon: _fromQRCode
                       ? const Padding(
                           padding: EdgeInsets.only(right: 8),
-                          child: Icon(Icons.check_circle, color: Colors.green, size: 20),
+                          child: Icon(
+                            Icons.check_circle,
+                            color: Colors.green,
+                            size: 20,
+                          ),
                         )
                       : null,
                 ),
               ),
               if (_macError != null) ...[
                 const SizedBox(height: 4),
-                Text(_macError!, style: const TextStyle(color: Colors.red, fontSize: 11)),
+                Text(
+                  _macError!,
+                  style: const TextStyle(color: Colors.red, fontSize: 11),
+                ),
               ],
               if (_fromQRCode) ...[
                 const SizedBox(height: 4),
-                const Text('✓ 已通过二维码扫描填充', style: TextStyle(color: Colors.green, fontSize: 11)),
+                const Text(
+                  '✓ 已通过二维码扫描填充',
+                  style: TextStyle(color: Colors.green, fontSize: 11),
+                ),
               ],
               const SizedBox(height: 24),
 
@@ -835,12 +1249,19 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.info_outline, color: Color(0xFFFFA000), size: 18),
+                    Icon(
+                      Icons.info_outline,
+                      color: Color(0xFFFFA000),
+                      size: 18,
+                    ),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         '添加后可在设备详情中配置串口参数和Modbus地址',
-                        style: TextStyle(color: Color(0xFF795548), fontSize: 12),
+                        style: TextStyle(
+                          color: Color(0xFF795548),
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ],
@@ -851,9 +1272,21 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
               // 按钮
               Row(
                 children: [
-                  Expanded(child: _DialogButton(label: '取消', isPrimary: false, onPressed: () => Navigator.pop(context))),
+                  Expanded(
+                    child: _DialogButton(
+                      label: '取消',
+                      isPrimary: false,
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
                   const SizedBox(width: 12),
-                  Expanded(child: _DialogButton(label: '确认添加', isPrimary: true, onPressed: _submit)),
+                  Expanded(
+                    child: _DialogButton(
+                      label: '确认添加',
+                      isPrimary: true,
+                      onPressed: _submit,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -868,13 +1301,23 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
       children: [
         Icon(icon, color: const Color(0xFF4A90D9), size: 16),
         const SizedBox(width: 6),
-        Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF2D4A6F))),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF2D4A6F),
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildLabel(String text) {
-    return Text(text, style: const TextStyle(fontSize: 12, color: Color(0xFF5A7A9A)));
+    return Text(
+      text,
+      style: const TextStyle(fontSize: 12, color: Color(0xFF5A7A9A)),
+    );
   }
 }
 
@@ -944,20 +1387,16 @@ class _DeviceListPageState extends State<DeviceListPage> {
     setState(() => _isLoading = true);
 
     try {
-      // 使用 addWhiteListItemFull 一次性添加白名单和配置（CMD 0x18）
       final item = WhiteListItem(mac: mac, name: name);
       await _service.addWhiteListItemFull(item);
-      
+
       // 提交保存
       await _service.commit();
       await _loadWhiteList();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('添加成功: $name'),
-            backgroundColor: Colors.green,
-          ),
+          SnackBar(content: Text('添加成功: $name'), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
@@ -965,10 +1404,16 @@ class _DeviceListPageState extends State<DeviceListPage> {
         // 提取错误消息
         String errorMsg = e.toString();
         if (errorMsg.contains('操作失败:')) {
-          errorMsg = errorMsg.split('操作失败:').last.replaceAll('FormatException: ', '');
+          errorMsg = errorMsg
+              .split('操作失败:')
+              .last
+              .replaceAll('FormatException: ', '');
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('添加失败: $errorMsg'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('添加失败: $errorMsg'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -1007,10 +1452,16 @@ class _DeviceListPageState extends State<DeviceListPage> {
       if (mounted) {
         String errorMsg = e.toString();
         if (errorMsg.contains('操作失败:')) {
-          errorMsg = errorMsg.split('操作失败:').last.replaceAll('FormatException: ', '');
+          errorMsg = errorMsg
+              .split('操作失败:')
+              .last
+              .replaceAll('FormatException: ', '');
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败: $errorMsg'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('删除失败: $errorMsg'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -1049,10 +1500,16 @@ class _DeviceListPageState extends State<DeviceListPage> {
       if (mounted) {
         String errorMsg = e.toString();
         if (errorMsg.contains('操作失败:')) {
-          errorMsg = errorMsg.split('操作失败:').last.replaceAll('FormatException: ', '');
+          errorMsg = errorMsg
+              .split('操作失败:')
+              .last
+              .replaceAll('FormatException: ', '');
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('清空失败: $errorMsg'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('清空失败: $errorMsg'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -1097,13 +1554,17 @@ class _DeviceListPageState extends State<DeviceListPage> {
                     icon: Icon(
                       Icons.delete_sweep,
                       size: 18,
-                      color: widget.isConnected ? const Color(0xFFE85C5C) : const Color(0xFFA0BCD6),
+                      color: widget.isConnected
+                          ? const Color(0xFFE85C5C)
+                          : const Color(0xFFA0BCD6),
                     ),
                     label: Text(
                       '清空全部',
                       style: TextStyle(
                         fontSize: 13,
-                        color: widget.isConnected ? const Color(0xFFE85C5C) : const Color(0xFFA0BCD6),
+                        color: widget.isConnected
+                            ? const Color(0xFFE85C5C)
+                            : const Color(0xFFA0BCD6),
                       ),
                     ),
                   ),
@@ -1116,16 +1577,26 @@ class _DeviceListPageState extends State<DeviceListPage> {
                   child: Center(
                     child: Column(
                       children: [
-                        Icon(Icons.devices_other, size: 48, color: Color(0xFFA0BCD6)),
+                        Icon(
+                          Icons.devices_other,
+                          size: 48,
+                          color: Color(0xFFA0BCD6),
+                        ),
                         SizedBox(height: 12),
                         Text(
                           '暂无子设备',
-                          style: TextStyle(color: Color(0xFFA0BCD6), fontSize: 14),
+                          style: TextStyle(
+                            color: Color(0xFFA0BCD6),
+                            fontSize: 14,
+                          ),
                         ),
                         SizedBox(height: 4),
                         Text(
                           '点击 + 添加设备',
-                          style: TextStyle(color: Color(0xFFA0BCD6), fontSize: 12),
+                          style: TextStyle(
+                            color: Color(0xFFA0BCD6),
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -1138,15 +1609,18 @@ class _DeviceListPageState extends State<DeviceListPage> {
                     child: ListView.builder(
                       itemCount: _devices.length,
                       itemBuilder: (context, index) {
-                        return _buildDeviceCard(context, index + 1, _devices[index]);
+                        return _buildDeviceCard(
+                          context,
+                          index + 1,
+                          _devices[index],
+                        );
                       },
                     ),
                   ),
                 ),
               const SizedBox(height: 16),
               // 添加按钮
-              if (_devices.length < 8)
-                _buildAddButton(context),
+              if (_devices.length < 8) _buildAddButton(context),
               const SizedBox(height: 20),
             ],
           ),
@@ -1164,7 +1638,11 @@ class _DeviceListPageState extends State<DeviceListPage> {
     );
   }
 
-  Widget _buildDeviceCard(BuildContext context, int slot, WhiteListItem device) {
+  Widget _buildDeviceCard(
+    BuildContext context,
+    int slot,
+    WhiteListItem device,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
@@ -1266,7 +1744,9 @@ class _DeviceListPageState extends State<DeviceListPage> {
 
   Widget _buildAddButton(BuildContext context) {
     return GestureDetector(
-      onTap: widget.isConnected && !_isLoading ? () => _showAddDeviceDialog(context) : null,
+      onTap: widget.isConnected && !_isLoading
+          ? () => _showAddDeviceDialog(context)
+          : null,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
@@ -1275,7 +1755,9 @@ class _DeviceListPageState extends State<DeviceListPage> {
               : const Color(0xFFE8F2FF),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: widget.isConnected ? const Color(0xFF4A90D9) : const Color(0xFFE8F2FF),
+            color: widget.isConnected
+                ? const Color(0xFF4A90D9)
+                : const Color(0xFFE8F2FF),
             style: BorderStyle.solid,
           ),
         ),
@@ -1284,13 +1766,17 @@ class _DeviceListPageState extends State<DeviceListPage> {
           children: [
             Icon(
               Icons.add,
-              color: widget.isConnected ? const Color(0xFF4A90D9) : const Color(0xFFA0BCD6),
+              color: widget.isConnected
+                  ? const Color(0xFF4A90D9)
+                  : const Color(0xFFA0BCD6),
             ),
             const SizedBox(width: 8),
             Text(
               '添加设备到白名单',
               style: TextStyle(
-                color: widget.isConnected ? const Color(0xFF4A90D9) : const Color(0xFFA0BCD6),
+                color: widget.isConnected
+                    ? const Color(0xFF4A90D9)
+                    : const Color(0xFFA0BCD6),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -1306,8 +1792,18 @@ class _DeviceListPageState extends State<DeviceListPage> {
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFFF0F7FF),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text('清空全部设备', style: TextStyle(color: Color(0xFF2D4A6F), fontSize: 15, fontWeight: FontWeight.bold)),
-        content: const Text('确定要清空所有已添加的设备吗？此操作无法撤销。', style: TextStyle(color: Color(0xFF5A7A9A), fontSize: 13)),
+        title: const Text(
+          '清空全部设备',
+          style: TextStyle(
+            color: Color(0xFF2D4A6F),
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: const Text(
+          '确定要清空所有已添加的设备吗？此操作无法撤销。',
+          style: TextStyle(color: Color(0xFF5A7A9A), fontSize: 13),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -1339,9 +1835,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
         );
       },
       pageBuilder: (context, animation, secondaryAnimation) {
-        return AddDeviceDialog(
-          onDeviceAdded: _addDevice,
-        );
+        return AddDeviceDialog(onDeviceAdded: _addDevice);
       },
     );
   }
@@ -1403,8 +1897,18 @@ class _DeviceListPageState extends State<DeviceListPage> {
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFFF0F7FF),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text('确认删除', style: TextStyle(color: Color(0xFF2D4A6F), fontSize: 15, fontWeight: FontWeight.bold)),
-        content: Text('确定要删除 "${device.name}" 吗？', style: const TextStyle(color: Color(0xFF5A7A9A), fontSize: 13)),
+        title: const Text(
+          '确认删除',
+          style: TextStyle(
+            color: Color(0xFF2D4A6F),
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          '确定要删除 "${device.name}" 吗？',
+          style: const TextStyle(color: Color(0xFF5A7A9A), fontSize: 13),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -1426,9 +1930,13 @@ class _DeviceListPageState extends State<DeviceListPage> {
 class _DialogButton extends StatefulWidget {
   final String label;
   final bool isPrimary;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
-  const _DialogButton({required this.label, required this.isPrimary, required this.onPressed});
+  const _DialogButton({
+    required this.label,
+    required this.isPrimary,
+    this.onPressed,
+  });
 
   @override
   State<_DialogButton> createState() => _DialogButtonState();
@@ -1439,13 +1947,17 @@ class _DialogButtonState extends State<_DialogButton> {
 
   @override
   Widget build(BuildContext context) {
+    final enabled = widget.onPressed != null;
+
     return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) {
-        setState(() => _isPressed = false);
-        widget.onPressed();
-      },
-      onTapCancel: () => setState(() => _isPressed = false),
+      onTapDown: enabled ? (_) => setState(() => _isPressed = true) : null,
+      onTapUp: enabled
+          ? (_) {
+              setState(() => _isPressed = false);
+              widget.onPressed?.call();
+            }
+          : null,
+      onTapCancel: enabled ? () => setState(() => _isPressed = false) : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 100),
         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1454,9 +1966,17 @@ class _DialogButtonState extends State<_DialogButton> {
               ? (_isPressed ? const Color(0xFF3A80C9) : const Color(0xFF4A90D9))
               : (_isPressed ? const Color(0xFFF0F7FF) : Colors.white),
           borderRadius: BorderRadius.circular(12),
-          border: widget.isPrimary ? null : Border.all(color: const Color(0xFF4A90D9), width: 1.5),
+          border: widget.isPrimary
+              ? null
+              : Border.all(color: const Color(0xFF4A90D9), width: 1.5),
           boxShadow: widget.isPrimary
-              ? [BoxShadow(color: const Color(0xFF4A90D9).withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 4))]
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF4A90D9).withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
               : null,
         ),
         child: Text(

@@ -109,6 +109,8 @@ class _ChildSettingsPageState extends State<ChildSettingsPage> {
 
         // 更新 Modbus 配置
         print('[child_settings] modbusConfig is null: ${config.modbusConfig == null}');
+        // 先重置为默认保留配置，避免旧数据残留
+        _resetModbusConfigToDefault();
         if (config.modbusConfig != null) {
           print('[child_settings] Modbus config items count: ${config.modbusConfig!.items.length}');
           if (config.modbusConfig!.items.isEmpty) {
@@ -379,11 +381,15 @@ class _ChildSettingsPageState extends State<ChildSettingsPage> {
 
   void _resetModbusAddresses() {
     setState(() {
-      _modbusAddresses.setAll(0, [1, 2, 3, 4, 5, 6, 7, 8]);
-      _modbusDeviceTypes.setAll(0, [5, 5, 5, 5, 5, 5, 5, 5]); // 默认: 5=保留
+      _resetModbusConfigToDefault();
       _hasChanges = true;
     });
     _sendModbusConfig(); // 实时发送
+  }
+
+  void _resetModbusConfigToDefault() {
+    _modbusAddresses.setAll(0, [1, 2, 3, 4, 5, 6, 7, 8]);
+    _modbusDeviceTypes.setAll(0, [5, 5, 5, 5, 5, 5, 5, 5]); // 默认: 5=保留
   }
 
   /// 实时发送串口配置到设备

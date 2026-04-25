@@ -290,7 +290,8 @@ class BleService {
 
   // 等待响应的回调
   final Map<int, Completer<ParseResult>> _pendingRequests = {};
-
+  /// 数据缓冲区，用于处理分片通知
+  Uint8List _receiveBuffer = Uint8List(0);
   // 响应超时时间
   static const Duration _responseTimeout = Duration(seconds: 5);
 
@@ -450,6 +451,7 @@ class BleService {
       }
     }
     _pendingRequests.clear();
+    _receiveBuffer = Uint8List(0);
   }
 
   /// 发送数据并等待响应
@@ -567,15 +569,18 @@ class BleService {
     // 广播原始数据
     _responseController.add(data);
 
-    // 尝试解析帧
-    final results = DtuFrame.parseStream(Uint8List.fromList(data));
+    // 将新数据追加到缓存中，并尝试解析完整帧
+    _receiveBuffer = Uint8List.fromList([..._receiveBuffer, ...data]);
+    final parseResult = DtuFrame.parseStream(_receiveBuffer);
+    _receiveBuffer = parseResult.remaining;
 
-    if (results.isEmpty) {
-      _addReceiveLog('⚠️ 无法解析为DTU帧，可能是其他协议数据', false);
-      debugPrint('[BLE接收] 未找到有效帧! 数据可能是非DTU协议格式或帧头不匹配');
+    if (parseResult.results.isEmpty) {
+      _addReceiveLog('⚠️ 无法解析为DTU帧，可能是分片数据或其他协议', false);
+      debugPrint('[BLE接收] 未找到有效帧! 数据可能是分片、非DTU协议格式或帧头不匹配');
+      return;
     }
 
-    for (final result in results) {
+    for (final result in parseResult.results) {
       debugPrint('[BLE接收] 解析结果: isSuccess=${result.isSuccess}, cmd=0x${result.cmd?.toRadixString(16)}, seq=${result.seq}, error=${result.error}');
       
       if (result.isSuccess && result.seq != null) {
@@ -687,7 +692,9 @@ class BleService {
     if (!result.isSuccess) {
       throw FormatException('读取节点配置失败: ${result.error}');
     }
-    return WhiteListItem.fromTag08(result.body!.sublist(1)); // 跳过 status 字节
+
+    // READ_WL_NODE_CFG 响应格式：status + uart_cfg(4) + modbus_count + (addr + dev_type)×N
+    return WhiteListItem.fromTag08Response(mac, result.body!.sublist(1));
   }
 
   /// 读取功率

@@ -231,7 +231,7 @@ class WhiteListItem {
     return WhiteListItem(mac: mac, name: name);
   }
 
-  /// 从字节解析（Tag 0x08 格式：MAC + uart + modbus）
+  /// 从字节解析（Tag 0x08 请求格式：MAC + uart + modbus）
   /// BODY: MAC(6) + 波特率(1) + 校验位(1) + 停止位(1) + 数据位(1) + 从站个数(1) + (addr+dev_type)×N
   factory WhiteListItem.fromTag08(List<int> bytes) {
     if (bytes.length < 11) {
@@ -256,6 +256,36 @@ class WhiteListItem {
     return WhiteListItem(
       mac: mac,
       name: '', // Tag 0x08 不包含名称，需要和 Tag 0x07 配合使用
+      baudLevel: baudLevel,
+      dataBits: dataBits,
+      stopBits: stopBits,
+      parity: parity,
+      modbusItems: items,
+    );
+  }
+
+  /// 从 READ_WL_NODE_CFG 响应 BODY 解析（不包含 MAC）
+  factory WhiteListItem.fromTag08Response(String mac, List<int> bytes) {
+    if (bytes.length < 5) {
+      throw FormatException('子节点配置响应数据长度不足: ${bytes.length}');
+    }
+
+    final baudLevel = bytes[0];
+    final parity = bytes[1];
+    final stopBits = bytes[2];
+    final dataBits = bytes[3];
+    final modbusCount = bytes[4];
+
+    final items = <ModbusItem>[];
+    int offset = 5;
+    while (offset + 1 < bytes.length && items.length < modbusCount) {
+      items.add(ModbusItem(addr: bytes[offset], devType: bytes[offset + 1]));
+      offset += 2;
+    }
+
+    return WhiteListItem(
+      mac: mac,
+      name: '',
       baudLevel: baudLevel,
       dataBits: dataBits,
       stopBits: stopBits,

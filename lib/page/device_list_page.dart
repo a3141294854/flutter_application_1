@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../protocol/protocol.dart';
@@ -1342,6 +1341,8 @@ class _DeviceListPageState extends State<DeviceListPage> {
   // 白名单数据
   List<WhiteListItem> _devices = [];
   bool _isLoading = false;
+  bool _isSelectionMode = false;
+  final Set<String> _selectedMacs = {};
 
   @override
   void initState() {
@@ -1469,6 +1470,122 @@ class _DeviceListPageState extends State<DeviceListPage> {
     }
   }
 
+  void _toggleSelectionMode() {
+    setState(() {
+      _isSelectionMode = !_isSelectionMode;
+      if (!_isSelectionMode) {
+        _selectedMacs.clear();
+      }
+    });
+  }
+
+  void _toggleDeviceSelection(String mac) {
+    setState(() {
+      if (_selectedMacs.contains(mac)) {
+        _selectedMacs.remove(mac);
+      } else {
+        _selectedMacs.add(mac);
+      }
+    });
+  }
+
+  void _showDeleteSelectedConfirmDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFFF0F7FF),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text(
+          '确认删除',
+          style: TextStyle(
+            color: Color(0xFF2D4A6F),
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          '确定要删除已选 ${_selectedMacs.length} 个设备吗？',
+          style: const TextStyle(color: Color(0xFF5A7A9A), fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消', style: TextStyle(color: Color(0xFF5A7A9A))),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteSelectedDevices();
+            },
+            child: const Text('删除', style: TextStyle(color: Color(0xFFE85C5C))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteSelectedDevices() async {
+    if (!widget.isConnected) return;
+
+    if (!_service.isRoot) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('只有 ROOT 设备才能删除白名单'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (_selectedMacs.isEmpty) return;
+
+    final selected = _selectedMacs.toList();
+    final failed = <String>[];
+    var successCount = 0;
+
+    setState(() => _isLoading = true);
+
+    try {
+      for (final mac in selected) {
+        try {
+          await _service.delWhiteListItem(mac);
+          successCount += 1;
+        } catch (_) {
+          failed.add(mac);
+        }
+      }
+
+      if (successCount > 0) {
+        await _service.commit();
+      }
+
+      await _loadWhiteList();
+
+      if (mounted) {
+        if (failed.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('已删除 $successCount 个设备'), backgroundColor: Colors.green),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('已删除 $successCount 个设备，${failed.length} 个删除失败'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } finally {
+      setState(() {
+        _isLoading = false;
+        _isSelectionMode = false;
+        _selectedMacs.clear();
+      });
+    }
+  }
+
   Future<void> _clearAll() async {
     if (!widget.isConnected) return;
 
@@ -1489,7 +1606,11 @@ class _DeviceListPageState extends State<DeviceListPage> {
     try {
       await _service.clearWhiteList();
       await _service.commit();
-      setState(() => _devices = []);
+      setState(() {
+        _devices = [];
+        _selectedMacs.clear();
+        _isSelectionMode = false;
+      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1528,48 +1649,116 @@ class _DeviceListPageState extends State<DeviceListPage> {
             children: [
               const SizedBox(height: 24),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Text(
-                    '子设备白名单',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2D4A6F),
+                  const Expanded(
+                    child: Text(
+                      '子设备白名单',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2D4A6F),
+                      ),
                     ),
                   ),
-                  TextButton.icon(
-                    onPressed: () {
-                      if (_devices.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('当前没有设备可清空'),
-                            backgroundColor: Colors.orange,
+                  Flexible(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        alignment: WrapAlignment.end,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          TextButton.icon(
+                            onPressed: () {
+                              if (_devices.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('当前没有设备可清空'),
+                                    backgroundColor: Colors.orange,
+                                  ),
+                                );
+                                return;
+                              }
+                              _showClearAllDialog(context);
+                            },
+                            icon: Icon(
+                              Icons.delete_sweep,
+                              size: 18,
+                              color: widget.isConnected
+                                  ? const Color(0xFFE85C5C)
+                                  : const Color(0xFFA0BCD6),
+                            ),
+                            label: Text(
+                              '清空全部',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: widget.isConnected
+                                    ? const Color(0xFFE85C5C)
+                                    : const Color(0xFFA0BCD6),
+                              ),
+                            ),
                           ),
-                        );
-                        return;
-                      }
-                      _showClearAllDialog(context);
-                    },
-                    icon: Icon(
-                      Icons.delete_sweep,
-                      size: 18,
-                      color: widget.isConnected
-                          ? const Color(0xFFE85C5C)
-                          : const Color(0xFFA0BCD6),
-                    ),
-                    label: Text(
-                      '清空全部',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: widget.isConnected
-                            ? const Color(0xFFE85C5C)
-                            : const Color(0xFFA0BCD6),
+                          TextButton.icon(
+                            onPressed: (_devices.isEmpty || !widget.isConnected)
+                                ? null
+                                : _toggleSelectionMode,
+                            icon: Icon(
+                              _isSelectionMode ? Icons.close : Icons.checklist,
+                              size: 18,
+                              color: (_devices.isEmpty || !widget.isConnected)
+                                  ? const Color(0xFFA0BCD6)
+                                  : const Color(0xFF4A90D9),
+                            ),
+                            label: Text(
+                              _isSelectionMode ? '取消选择' : '批量',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: (_devices.isEmpty || !widget.isConnected)
+                                    ? const Color(0xFFA0BCD6)
+                                    : const Color(0xFF4A90D9),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: 8),
+              if (_isSelectionMode)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Text(
+                        '已选 ${_selectedMacs.length} 项',
+                        style: const TextStyle(
+                          color: Color(0xFF2D4A6F),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: _selectedMacs.isEmpty
+                            ? null
+                            : () => _showDeleteSelectedConfirmDialog(context),
+                        child: Text(
+                          '删除所选',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: _selectedMacs.isEmpty
+                                ? const Color(0xFFA0BCD6)
+                                : const Color(0xFFE85C5C),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 8),
               if (_devices.isEmpty && !_isLoading)
                 const Padding(
@@ -1658,85 +1847,101 @@ class _DeviceListPageState extends State<DeviceListPage> {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F2FF),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Center(
-                child: Text(
-                  '#$slot',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF4A90D9),
+        child: GestureDetector(
+          onTap: _isSelectionMode ? () => _toggleDeviceSelection(device.mac) : null,
+          child: Row(
+            children: [
+              if (_isSelectionMode)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: Checkbox(
+                      value: _selectedMacs.contains(device.mac),
+                      onChanged: (_) => _toggleDeviceSelection(device.mac),
+                      activeColor: const Color(0xFF4A90D9),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    device.name,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF2D4A6F),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    device.mac,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF5A7A9A),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // 配置按钮
-            GestureDetector(
-              onTap: () => _showChildNodeConfigDialog(context, device),
-              child: Container(
-                padding: const EdgeInsets.all(6),
+              Container(
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: const Color(0xFFE8F2FF),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(
-                  Icons.settings_input_component,
-                  color: Color(0xFF4A90D9),
-                  size: 18,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            // 删除按钮
-            GestureDetector(
-              onTap: () => _showDeleteConfirmDialog(context, device),
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFE8E8),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.delete_outline,
-                  color: Color(0xFFE85C5C),
-                  size: 18,
+                child: Center(
+                  child: Text(
+                    '#$slot',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF4A90D9),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      device.name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF2D4A6F),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      device.mac,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF5A7A9A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!_isSelectionMode) ...[
+                GestureDetector(
+                  onTap: () => _showChildNodeConfigDialog(context, device),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F2FF),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.settings_input_component,
+                      color: Color(0xFF4A90D9),
+                      size: 18,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => _showDeleteConfirmDialog(context, device),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFE8E8),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.delete_outline,
+                      color: Color(0xFFE85C5C),
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

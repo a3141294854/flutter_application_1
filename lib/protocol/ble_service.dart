@@ -278,6 +278,17 @@ class DebugLogService {
   }
 }
 
+class _PendingRequest {
+  final Completer<ParseResult> completer;
+  final bool Function(ParseResult result)? keepWaiting;
+  final List<ParseResult> fragments = [];
+
+  _PendingRequest({
+    required this.completer,
+    this.keepWaiting,
+  });
+}
+
 /// BLE 通信服务
 /// 管理与 DTU 设备的蓝牙通信
 class BleService {
@@ -289,7 +300,7 @@ class BleService {
   StreamSubscription<List<int>>? _notifySubscription;
 
   // 等待响应的回调
-  final Map<int, Completer<ParseResult>> _pendingRequests = {};
+  final Map<int, _PendingRequest> _pendingRequests = {};
   /// 数据缓冲区，用于处理分片通知
   Uint8List _receiveBuffer = Uint8List(0);
   // 响应超时时间
@@ -445,9 +456,9 @@ class BleService {
     _device = null;
 
     // 取消所有待处理的请求
-    for (final completer in _pendingRequests.values) {
-      if (!completer.isCompleted) {
-        completer.completeError('连接已断开');
+    for (final pending in _pendingRequests.values) {
+      if (!pending.completer.isCompleted) {
+        pending.completer.completeError('连接已断开');
       }
     }
     _pendingRequests.clear();
@@ -455,7 +466,7 @@ class BleService {
   }
 
   /// 发送数据并等待响应
-  Future<ParseResult> sendAndWait(Uint8List frame, {int? expectedSeq}) async {
+  Future<ParseResult> sendAndWait(Uint8List frame, {bool Function(ParseResult result)? keepWaiting}) async {
     if (!isConnected) {
       return ParseResult.error('未连接到设备');
     }
@@ -464,7 +475,10 @@ class BleService {
     final completer = Completer<ParseResult>();
     final seq = frame[3]; // 从帧中获取 SEQ
 
-    _pendingRequests[seq] = completer;
+    _pendingRequests[seq] = _PendingRequest(
+      completer: completer,
+      keepWaiting: keepWaiting,
+    );
 
     // 记录发送的日志
     // 帧格式: AA 55 CMD SEQ LEN_L LEN_H [BODY...] CRC_L CRC_H
@@ -585,10 +599,23 @@ class BleService {
       
       if (result.isSuccess && result.seq != null) {
         // 检查是否有等待此 SEQ 的请求
-        final completer = _pendingRequests.remove(result.seq);
-        if (completer != null && !completer.isCompleted) {
-          completer.complete(result);
-          debugPrint('[BLE接收] ✅ 匹配到等待的请求 SEQ=${result.seq}，完成等待');
+        final pending = _pendingRequests[result.seq];
+        if (pending != null) {
+          pending.fragments.add(result);
+          final keepWaiting = pending.keepWaiting != null && pending.keepWaiting!(result);
+
+          if (keepWaiting) {
+            debugPrint('[BLE接收] ✅ 接收到分片响应 SEQ=${result.seq}，继续等待后续分片');
+          } else {
+            final combinedResult = pending.fragments.length == 1
+                ? result
+                : _mergeParseResults(pending.fragments);
+            _pendingRequests.remove(result.seq);
+            if (!pending.completer.isCompleted) {
+              pending.completer.complete(combinedResult);
+              debugPrint('[BLE接收] ✅ 完成请求 SEQ=${result.seq}, 已处理 ${pending.fragments.length} 个分片');
+            }
+          }
         } else {
           debugPrint('[BLE接收] ⚠️ 未找到匹配的待处理请求 seq=${result.seq}, 当前等待: ${_pendingRequests.keys.toList()}');
         }
@@ -631,6 +658,39 @@ class BleService {
     return parser(result.body!);
   }
 
+ParseResult _mergeParseResults(List<ParseResult> fragments) {
+    final first = fragments.first;
+    if (first.body == null || first.body!.length < 5) {
+      return first;
+    }
+
+    final status = first.body![0];
+    final fragTotal = first.body![2];
+    final wlTotal = first.body![3];
+    final items = <int>[];
+    var combinedItemCount = 0;
+
+    for (final fragment in fragments) {
+      final body = fragment.body!;
+      if (body.length < 5) continue;
+      combinedItemCount += body[4];
+      if (body.length > 5) {
+        items.addAll(body.sublist(5));
+      }
+    }
+
+    final mergedBody = Uint8List.fromList([
+      status,
+      fragTotal,
+      fragTotal,
+      wlTotal,
+      combinedItemCount,
+      ...items,
+    ]);
+
+    return ParseResult.success(cmd: first.cmd!, seq: first.seq!, body: mergedBody);
+  }
+
   // ========== 读取命令 ==========
 
   /// 读取设备信息
@@ -670,7 +730,15 @@ class BleService {
     final allItems = <WhiteListItem>[];
 
     while (true) {
-      final result = await sendAndWait(DtuFrame.buildReadWhiteList());
+      final result = await sendAndWait(
+        DtuFrame.buildReadWhiteList(),
+        keepWaiting: (response) {
+          if (response.body == null || response.body!.length < 5) return false;
+          final fragIdx = response.body![1];
+          final fragTotal = response.body![2];
+          return fragTotal > 1 && fragIdx < fragTotal;
+        },
+      );
       if (!result.isSuccess) {
         throw FormatException('读取白名单失败: ${result.error}');
       }

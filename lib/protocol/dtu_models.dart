@@ -350,7 +350,7 @@ class WhiteListResult {
     required this.wlTotal,
     required this.itemCount,
     required this.items,
-  }) : isComplete = fragIdx == fragTotal;
+  }) : isComplete = fragTotal <= 1 || fragIdx == fragTotal || fragIdx == fragTotal - 1;
 
   /// 从响应 BODY 解析
   factory WhiteListResult.fromBytes(Uint8List body) {

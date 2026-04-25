@@ -1672,7 +1672,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -1737,7 +1737,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                                   : const Color(0xFF4A90D9),
                             ),
                             label: Text(
-                              _isSelectionMode ? '取消选择' : '批量',
+                              _isSelectionMode ? '取消选择' : '批量操作',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: (_devices.isEmpty || !widget.isConnected)
@@ -1770,7 +1770,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                         ),
                   filled: true,
                   fillColor: const Color(0xFFF5F7FB),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -1812,7 +1812,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
               const SizedBox(height: 8),
               if (_devices.isEmpty && !_isLoading)
                 const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
+                  padding: EdgeInsets.symmetric(vertical: 24),
                   child: Center(
                     child: Column(
                       children: [
@@ -1843,7 +1843,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                 )
               else if (_filteredDevices.isEmpty && !_isLoading)
                 const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
+                  padding: EdgeInsets.symmetric(vertical: 24),
                   child: Center(
                     child: Column(
                       children: [
@@ -1889,10 +1889,10 @@ class _DeviceListPageState extends State<DeviceListPage> {
                     ),
                   ),
                 ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               // 添加按钮
               if (_devices.length < 8) _buildAddButton(context),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
             ],
           ),
         ),
@@ -1915,7 +1915,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
     WhiteListItem device,
   ) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -1928,7 +1928,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: GestureDetector(
           onTap: _isSelectionMode ? () => _toggleDeviceSelection(device.mac) : null,
           child: Row(
@@ -2035,7 +2035,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
           ? () => _showAddDeviceDialog(context)
           : null,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           color: widget.isConnected
               ? const Color(0xFF4A90D9).withValues(alpha: 0.1)

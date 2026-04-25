@@ -441,7 +441,10 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
                         DropdownMenuItem(value: 0x07, child: Text('115200')),
                       ],
                       onChanged: (value) {
-                        if (value != null) setState(() => _baudLevel = value);
+                        if (value != null) {
+                          setState(() => _baudLevel = value);
+                          _markChanged();
+                        }
                       },
                     ),
                   ),

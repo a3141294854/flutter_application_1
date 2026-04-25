@@ -208,7 +208,22 @@ class DtuService {
         }
       }
 
-        // 5.3 添加新条目
+      // 5.3 更新已有条目的配置
+      for (final item in whiteList) {
+        if (currentMacs.contains(item.mac)) {
+          final oldItem = _config.whiteList.firstWhere((e) => e.mac == item.mac);
+          if (!_whiteListItemConfigEquals(oldItem, item)) {
+            try {
+              await _bleService.setChildNodeConfig(item);
+              results.add('✓ 更新白名单节点配置 ${item.name}');
+            } catch (e) {
+              errors.add('✗ 更新白名单节点配置 ${item.name} 失败: $e');
+            }
+          }
+        }
+      }
+
+      // 5.4 添加新条目
       final toAdd = newMacs.difference(currentMacs);
       for (final item in whiteList) {
         if (toAdd.contains(item.mac)) {
@@ -239,6 +254,25 @@ class DtuService {
     } else {
       return '部分失败:\n${results.join('\n')}\n${errors.join('\n')}';
     }
+  }
+
+  bool _whiteListItemConfigEquals(WhiteListItem a, WhiteListItem b) {
+    if (a.baudLevel != b.baudLevel ||
+        a.parity != b.parity ||
+        a.stopBits != b.stopBits ||
+        a.dataBits != b.dataBits) {
+      return false;
+    }
+
+    final aItems = a.modbusItems;
+    final bItems = b.modbusItems;
+    if (aItems.length != bItems.length) return false;
+    for (var i = 0; i < aItems.length; i++) {
+      if (aItems[i].addr != bItems[i].addr || aItems[i].devType != bItems[i].devType) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /// 写入串口配置

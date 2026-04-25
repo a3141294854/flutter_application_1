@@ -1343,11 +1343,27 @@ class _DeviceListPageState extends State<DeviceListPage> {
   bool _isLoading = false;
   bool _isSelectionMode = false;
   final Set<String> _selectedMacs = {};
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadWhiteList();
+  }
+
+  List<WhiteListItem> get _filteredDevices {
+    if (_searchQuery.isEmpty) return _devices;
+    final query = _searchQuery.toLowerCase();
+    return _devices.where((device) {
+      return device.name.toLowerCase().contains(query) || device.mac.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  void _onSearchChanged(String query) {
+    setState(() {
+      _searchQuery = query;
+    });
   }
 
   Future<void> _loadWhiteList() async {
@@ -1586,6 +1602,12 @@ class _DeviceListPageState extends State<DeviceListPage> {
     }
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _clearAll() async {
     if (!widget.isConnected) return;
 
@@ -1728,6 +1750,31 @@ class _DeviceListPageState extends State<DeviceListPage> {
                 ],
               ),
               const SizedBox(height: 8),
+              TextField(
+                controller: _searchController,
+                onChanged: _onSearchChanged,
+                decoration: InputDecoration(
+                  hintText: '搜索设备名称或 MAC',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _searchQuery.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.clear, size: 20),
+                          onPressed: () {
+                            _searchController.clear();
+                            _onSearchChanged('');
+                          },
+                        ),
+                  filled: true,
+                  fillColor: const Color(0xFFF5F7FB),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
               if (_isSelectionMode)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
@@ -1791,17 +1838,49 @@ class _DeviceListPageState extends State<DeviceListPage> {
                     ),
                   ),
                 )
+              else if (_filteredDevices.isEmpty && !_isLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.search_off,
+                          size: 48,
+                          color: Color(0xFFA0BCD6),
+                        ),
+                        SizedBox(height: 12),
+                        Text(
+                          '未找到匹配的设备',
+                          style: TextStyle(
+                            color: Color(0xFFA0BCD6),
+                            fontSize: 14,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          '请尝试其他名称或 MAC',
+                          style: TextStyle(
+                            color: Color(0xFFA0BCD6),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
               else
                 Expanded(
                   child: RefreshIndicator(
                     onRefresh: _loadWhiteList,
                     child: ListView.builder(
-                      itemCount: _devices.length,
+                      itemCount: _filteredDevices.length,
                       itemBuilder: (context, index) {
+                        final device = _filteredDevices[index];
                         return _buildDeviceCard(
                           context,
                           index + 1,
-                          _devices[index],
+                          device,
                         );
                       },
                     ),

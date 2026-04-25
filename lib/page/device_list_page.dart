@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../protocol/protocol.dart';
@@ -15,25 +15,81 @@ class QRScanResult {
     required this.role,
   });
 
-  /// 从JSON字符串解析二维码内容
-  static QRScanResult? fromJson(String jsonString) {
-    try {
-      final map = json.decode(jsonString) as Map<String, dynamic>;
-      final name = map['name'] as String?;
-      final mac = map['mac'] as String?;
-      final role = map['role'] as String?;
+  /// 从字符串解析二维码内容，支持多种格式
+  static QRScanResult? fromString(String content) {
+    content = content.trim();
 
-      if (name == null || name.isEmpty) return null;
-      if (mac == null || mac.isEmpty) return null;
+    // 格式1: JSON 格式 {"name":"xxx","mac":"AA:BB:CC:DD:EE:FF"} (支持多行格式)
+    if (content.contains('{') && content.contains('}')) {
+      try {
+        // 使用正则提取 name 和 mac
+        String? name;
+        String? mac;
+        String? role;
 
-      return QRScanResult(
-        name: name,
-        mac: mac,
-        role: role ?? 'unknown',
-      );
-    } catch (e) {
-      return null;
+        final nameMatch = RegExp(r'"name"\s*:\s*"([^"]+)"').firstMatch(content);
+        if (nameMatch != null) name = nameMatch.group(1);
+
+        final nMatch = RegExp(r'"n"\s*:\s*"([^"]+)"').firstMatch(content);
+        if (nMatch != null && name == null) name = nMatch.group(1);
+
+        final macMatch = RegExp(r'"mac"\s*:\s*"([^"]+)"').firstMatch(content);
+        if (macMatch != null) mac = macMatch.group(1)?.replaceAll('-', ':').toUpperCase();
+
+        final mMatch = RegExp(r'"m"\s*:\s*"([^"]+)"').firstMatch(content);
+        if (mMatch != null && mac == null) mac = mMatch.group(1)?.replaceAll('-', ':').toUpperCase();
+
+        final roleMatch = RegExp(r'"role"\s*:\s*"([^"]+)"').firstMatch(content);
+        if (roleMatch != null) role = roleMatch.group(1);
+
+        if (name != null && name.isNotEmpty && mac != null && isValidMac(mac)) {
+          return QRScanResult(name: name, mac: mac, role: role ?? 'unknown');
+        }
+      } catch (_) {}
     }
+
+    // 格式2: BT:设备名称:MAC地址 (如 BT:DTU_Device:AA:BB:CC:DD:EE:FF)
+    if (content.startsWith('BT:') || content.startsWith('bt:')) {
+      final parts = content.split(':');
+      if (parts.length >= 3) {
+        final name = parts[1].trim();
+        final mac = parts.sublist(2).join(':').replaceAll('-', ':').toUpperCase();
+        if (isValidMac(mac)) {
+          return QRScanResult(name: name, mac: mac, role: 'unknown');
+        }
+      }
+    }
+
+    // 格式3: name:xxx;mac:xxx (如 name:DTU;mac:AA:BB:CC:DD:EE:FF)
+    if (content.contains(';') || content.contains('&')) {
+      final separator = content.contains(';') ? ';' : '&';
+      final parts = content.split(separator);
+      String? name;
+      String? mac;
+      for (final part in parts) {
+        final kv = part.split(':');
+        if (kv.length >= 2) {
+          final key = kv[0].trim().toLowerCase();
+          final value = kv.sublist(1).join(':').trim();
+          if (key == 'name' || key == 'n') {
+            name = value;
+          } else if (key == 'mac' || key == 'm') {
+            mac = value.replaceAll('-', ':').toUpperCase();
+          }
+        }
+      }
+      if (name != null && name.isNotEmpty && mac != null && isValidMac(mac)) {
+        return QRScanResult(name: name, mac: mac, role: 'unknown');
+      }
+    }
+
+    // 格式4: 直接是 MAC 地址 (如 AA:BB:CC:DD:EE:FF)
+    final cleanedMac = content.replaceAll('-', ':').toUpperCase();
+    if (isValidMac(cleanedMac)) {
+      return QRScanResult(name: '设备', mac: cleanedMac, role: 'unknown');
+    }
+
+    return null;
   }
 
   /// 验证MAC地址格式
@@ -297,43 +353,68 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
   }
 }
 
+
+
+
 /// 二维码扫描对话框
 class QRScannerDialog extends StatefulWidget {
-  final Function(QRScanResult) onScanned;
-
-  const QRScannerDialog({super.key, required this.onScanned});
+  const QRScannerDialog({super.key});
 
   @override
   State<QRScannerDialog> createState() => _QRScannerDialogState();
 }
 
 class _QRScannerDialogState extends State<QRScannerDialog> {
-  final MobileScannerController _controller = MobileScannerController(
-    detectionSpeed: DetectionSpeed.normal,
-    facing: CameraFacing.back,
-    torchEnabled: false,
-  );
+  MobileScannerController? _controller;
   bool _hasScanned = false;
+  bool _isInitializing = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initCamera();
+  }
+
+  Future<void> _initCamera() async {
+    try {
+      _controller = MobileScannerController(
+        detectionSpeed: DetectionSpeed.normal,
+        facing: CameraFacing.back,
+        torchEnabled: false,
+      );
+      if (mounted) {
+        setState(() => _isInitializing = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isInitializing = false);
+      }
+    }
+  }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   void _onDetect(BarcodeCapture capture) {
     if (_hasScanned) return;
 
-    for (final barcode in capture.barcodes) {
-      final rawValue = barcode.rawValue;
-      if (rawValue != null) {
-        final result = QRScanResult.fromJson(rawValue);
-        if (result != null && QRScanResult.isValidMac(result.mac)) {
-          setState(() => _hasScanned = true);
-          Navigator.pop(context);
-          widget.onScanned(result);
-          return;
-        }
+    final List<Barcode> barcodes = capture.barcodes;
+    for (final barcode in barcodes) {
+      final value = barcode.rawValue;
+      if (value == null) continue;
+
+      debugPrint('[QRScanner] 扫描到内容: $value');
+      final result = QRScanResult.fromString(value);
+      if (result != null) {
+        debugPrint('[QRScanner] 解析成功: name=${result.name}, mac=${result.mac}');
+        _hasScanned = true;
+        Navigator.of(context).pop(result);
+        return;
+      } else {
+        debugPrint('[QRScanner] 无法解析该内容');
       }
     }
   }
@@ -341,72 +422,92 @@ class _QRScannerDialogState extends State<QRScannerDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.transparent,
-      child: Container(
-        width: 300,
-        height: 380,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF0F7FF),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          children: [
-            // 标题栏
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: const BoxDecoration(
-                color: Color(0xFF4A90D9),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.qr_code_scanner, color: Colors.white, size: 20),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      '扫描设备二维码',
-                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white, size: 20),
-                    onPressed: () => Navigator.pop(context),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
+      backgroundColor: Colors.black,
+      insetPadding: const EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 标题栏
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              color: Color(0xFF1A1A1A),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
             ),
-            // 扫描区域
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  margin: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF4A90D9), width: 2),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: MobileScanner(
-                      controller: _controller,
-                      onDetect: _onDetect,
-                    ),
+            child: Row(
+              children: [
+                const Icon(Icons.qr_code_scanner, color: Colors.white),
+                const SizedBox(width: 8),
+                const Text(
+                  '扫描设备二维码',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
             ),
-            // 提示文字
-            const Padding(
-              padding: EdgeInsets.only(bottom: 16),
-              child: Text(
-                '请扫描设备上的二维码',
-                style: TextStyle(color: Color(0xFF5A7A9A), fontSize: 13),
-              ),
+          ),
+          // 扫描区域
+          SizedBox(
+            height: 320,
+            width: double.infinity,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (_isInitializing)
+                  const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: Colors.white),
+                        SizedBox(height: 16),
+                        Text('正在启动摄像头...', style: TextStyle(color: Colors.white70)),
+                      ],
+                    ),
+                  )
+                else if (_controller != null)
+                  MobileScanner(
+                    controller: _controller!,
+                    onDetect: _onDetect,
+                  )
+                else
+                  const Center(
+                    child: Text('摄像头启动失败', style: TextStyle(color: Colors.orange)),
+                  ),
+                // 扫描框
+                Container(
+                  width: 240,
+                  height: 240,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 2),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          // 提示信息
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: Color(0xFF1A1A1A),
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+            ),
+            child: const Text(
+              '请扫描设备上的蓝牙二维码',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -436,25 +537,17 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
     super.dispose();
   }
 
-  void _showQRScanner() {
-    showGeneralDialog(
+  void _showQRScanner() async {
+    final result = await showDialog<QRScanResult>(
       context: context,
       barrierDismissible: true,
-      barrierLabel: '',
       barrierColor: Colors.black54,
-      transitionDuration: const Duration(milliseconds: 200),
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        return ScaleTransition(
-          scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
-          child: FadeTransition(opacity: animation, child: child),
-        );
-      },
-      pageBuilder: (context, animation, secondaryAnimation) {
-        return QRScannerDialog(
-          onScanned: _onQRCodeScanned,
-        );
-      },
+      builder: (context) => const QRScannerDialog(),
     );
+
+    if (result != null) {
+      _onQRCodeScanned(result);
+    }
   }
 
   void _onQRCodeScanned(QRScanResult result) {

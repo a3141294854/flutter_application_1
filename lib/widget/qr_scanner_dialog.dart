@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -9,19 +10,41 @@ class QrScannerDialog extends StatefulWidget {
 }
 
 class _QrScannerDialogState extends State<QrScannerDialog> {
-  final MobileScannerController _controller = MobileScannerController(
-    detectionSpeed: DetectionSpeed.normal,
-    facing: CameraFacing.back,
-    torchEnabled: false,
-  );
-  
+  MobileScannerController? _controller;
   bool _hasScanned = false;
   String? _errorMessage;
   bool _torchOn = false;
+  bool _isInitializing = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initCamera();
+  }
+
+  Future<void> _initCamera() async {
+    try {
+      _controller = MobileScannerController(
+        detectionSpeed: DetectionSpeed.normal,
+        facing: CameraFacing.back,
+        torchEnabled: false,
+      );
+      if (mounted) {
+        setState(() => _isInitializing = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = '摄像头启动失败，请检查权限';
+          _isInitializing = false;
+        });
+      }
+    }
+  }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
@@ -136,17 +159,21 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
 
   void _onDetect(BarcodeCapture capture) {
     if (_hasScanned) return;
-    
+
     final List<Barcode> barcodes = capture.barcodes;
     for (final barcode in barcodes) {
       final value = barcode.rawValue;
       if (value == null) continue;
-      
+
+      debugPrint('[QRScanner] 扫描到内容: $value');
       final result = _parseQrContent(value);
       if (result != null) {
+        debugPrint('[QRScanner] 解析成功: name=${result.name}, mac=${result.mac}');
         _hasScanned = true;
         Navigator.of(context).pop(result);
         return;
+      } else {
+        debugPrint('[QRScanner] 无法解析该内容');
       }
     }
   }
@@ -185,12 +212,14 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
                     _torchOn ? Icons.flash_on : Icons.flash_off,
                     color: _torchOn ? Colors.amber : Colors.white,
                   ),
-                  onPressed: () async {
-                    await _controller.toggleTorch();
-                    setState(() {
-                      _torchOn = !_torchOn;
-                    });
-                  },
+                  onPressed: _controller != null
+                      ? () async {
+                          await _controller!.toggleTorch();
+                          setState(() {
+                            _torchOn = !_torchOn;
+                          });
+                        }
+                      : null,
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white),
@@ -207,10 +236,35 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                MobileScanner(
-                  controller: _controller,
-                  onDetect: _onDetect,
-                ),
+                if (_isInitializing)
+                  const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: Colors.white),
+                        SizedBox(height: 16),
+                        Text('正在启动摄像头...', style: TextStyle(color: Colors.white70)),
+                      ],
+                    ),
+                  )
+                else if (_controller != null)
+                  MobileScanner(
+                    controller: _controller!,
+                    onDetect: _onDetect,
+                  )
+                else
+                  const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.no_photography, color: Colors.orange, size: 48),
+                        SizedBox(height: 16),
+                        Text('摄像头启动失败', style: TextStyle(color: Colors.orange)),
+                        SizedBox(height: 8),
+                        Text('请检查摄像头权限', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                      ],
+                    ),
+                  ),
                 // 扫描框
                 Container(
                   width: 240,

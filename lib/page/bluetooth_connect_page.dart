@@ -169,7 +169,7 @@ class _BluetoothConnectPageState extends State<BluetoothConnectPage> {
       return;
     }
 
-    final result = await showDialog<(String name, String mac)>(
+    final result = await showDialog<({String name, String mac})>(
       context: context,
       barrierDismissible: false,
       builder: (context) => const QrScannerDialog(),
@@ -177,7 +177,8 @@ class _BluetoothConnectPageState extends State<BluetoothConnectPage> {
 
     if (result == null) return;
 
-    final (name, mac) = result;
+    final name = result.name;
+    final mac = result.mac;
     
     // 显示正在尝试连接
     if (mounted) {

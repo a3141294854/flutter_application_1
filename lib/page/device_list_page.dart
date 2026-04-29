@@ -87,7 +87,7 @@ class QRScanResult {
     // 格式4: 直接是 MAC 地址 (如 AA:BB:CC:DD:EE:FF)
     final cleanedMac = content.replaceAll('-', ':').toUpperCase();
     if (isValidMac(cleanedMac)) {
-      return QRScanResult(name: '设备', mac: cleanedMac, role: 'unknown');
+      return QRScanResult(name: cleanedMac, mac: cleanedMac, role: 'unknown'); // V2: name = mac
     }
 
     return null;
@@ -394,7 +394,7 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
                             ),
                           ),
                           Text(
-                            widget.device.name,
+                            widget.device.mac,
                             style: const TextStyle(
                               fontSize: 12,
                               color: Color(0xFF5A7A9A),
@@ -967,7 +967,7 @@ class _QRScannerDialogState extends State<QRScannerDialog> {
   }
 }
 
-/// 添加设备对话框（仅基本信息）
+/// 添加设备对话框（V2: 仅 MAC 地址，不再输入设备名称）
 class AddDeviceDialog extends StatefulWidget {
   final Function(String mac, String name) onDeviceAdded;
 
@@ -978,15 +978,12 @@ class AddDeviceDialog extends StatefulWidget {
 }
 
 class _AddDeviceDialogState extends State<AddDeviceDialog> {
-  final _nameController = TextEditingController();
   final _macController = TextEditingController();
-  String? _nameError;
   String? _macError;
   bool _fromQRCode = false;
 
   @override
   void dispose() {
-    _nameController.dispose();
     _macController.dispose();
     super.dispose();
   }
@@ -1006,10 +1003,8 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
 
   void _onQRCodeScanned(QRScanResult result) {
     setState(() {
-      _nameController.text = result.name;
       _macController.text = result.mac;
       _fromQRCode = true;
-      _nameError = null;
       _macError = null;
     });
   }
@@ -1021,17 +1016,16 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
   }
 
   void _submit() {
-    final name = _nameController.text.trim();
     final mac = _macController.text.trim();
 
     setState(() {
-      _nameError = name.isEmpty ? '请输入设备名称' : null;
       _macError = !_isValidMacAddress(mac) ? '格式错误，应为 XX:XX:XX:XX:XX:XX' : null;
     });
 
-    if (name.isEmpty || !_isValidMacAddress(mac)) return;
+    if (!_isValidMacAddress(mac)) return;
 
-    widget.onDeviceAdded(mac, name);
+    // V2: name 等同于 mac
+    widget.onDeviceAdded(mac, mac);
     Navigator.pop(context);
   }
 
@@ -1119,56 +1113,6 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
 
               // 基本信息
               _buildSectionTitle('基本信息', Icons.info_outline),
-              const SizedBox(height: 12),
-
-              // 设备名称
-              _buildLabel('设备名称'),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _nameController,
-                style: const TextStyle(fontSize: 14),
-                decoration: InputDecoration(
-                  hintText: '请输入设备名称',
-                  isDense: true,
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(
-                      color: _nameError != null
-                          ? Colors.red
-                          : Colors.transparent,
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(
-                      color: _nameError != null
-                          ? Colors.red.shade200
-                          : Colors.transparent,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(
-                      color: _nameError != null
-                          ? Colors.red
-                          : const Color(0xFF4A90D9),
-                    ),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                ),
-              ),
-              if (_nameError != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  _nameError!,
-                  style: const TextStyle(color: Colors.red, fontSize: 11),
-                ),
-              ],
               const SizedBox(height: 12),
 
               // MAC 地址
@@ -1359,7 +1303,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
     if (_searchQuery.isEmpty) return _devices;
     final query = _searchQuery.toLowerCase();
     return _devices.where((device) {
-      return device.name.toLowerCase().contains(query) || device.mac.toLowerCase().contains(query);
+      return device.mac.toLowerCase().contains(query);
     }).toList();
   }
 
@@ -1407,7 +1351,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
     setState(() => _isLoading = true);
 
     try {
-      final item = WhiteListItem(mac: mac, name: name);
+      final item = WhiteListItem(mac: mac, name: mac); // V2: name = mac
       await _service.addWhiteListItemFull(item);
 
       // 提交保存
@@ -1416,7 +1360,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('添加成功: $name'), backgroundColor: Colors.green),
+          SnackBar(content: Text('添加成功: $mac'), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
@@ -1757,7 +1701,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                 controller: _searchController,
                 onChanged: _onSearchChanged,
                 decoration: InputDecoration(
-                  hintText: '搜索设备名称或 MAC',
+                  hintText: '搜索 MAC 地址',
                   prefixIcon: const Icon(Icons.search, size: 20),
                   suffixIcon: _searchQuery.isEmpty
                       ? null
@@ -1891,7 +1835,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                 ),
               const SizedBox(height: 12),
               // 添加按钮
-              if (_devices.length < 8) _buildAddButton(context),
+              _buildAddButton(context),
               const SizedBox(height: 12),
             ],
           ),
@@ -1971,19 +1915,11 @@ class _DeviceListPageState extends State<DeviceListPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      device.name,
+                      device.mac,
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF2D4A6F),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      device.mac,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF5A7A9A),
                       ),
                     ),
                   ],
@@ -2162,7 +2098,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('配置已保存: ${device.name}'),
+            content: Text('配置已保存: ${device.mac}'),
             backgroundColor: Colors.green,
           ),
         );
@@ -2193,7 +2129,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
           ),
         ),
         content: Text(
-          '确定要删除 "${device.name}" 吗？',
+          '确定要删除 "$device.mac" 吗？',
           style: const TextStyle(color: Color(0xFF5A7A9A), fontSize: 13),
         ),
         actions: [

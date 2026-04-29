@@ -208,30 +208,17 @@ class DtuService {
         }
       }
 
-      // 5.3 更新已有条目的配置
-      for (final item in whiteList) {
-        if (currentMacs.contains(item.mac)) {
-          final oldItem = _config.whiteList.firstWhere((e) => e.mac == item.mac);
-          if (!_whiteListItemConfigEquals(oldItem, item)) {
-            try {
-              await _bleService.setChildNodeConfig(item);
-              results.add('✓ 更新白名单节点配置 ${item.name}');
-            } catch (e) {
-              errors.add('✗ 更新白名单节点配置 ${item.name} 失败: $e');
-            }
-          }
-        }
-      }
+      // V2: 不再需要更新已有条目配置（SET_WL_NODE_CFG 已移除）
 
-      // 5.4 添加新条目
+      // 5.3 添加新条目（V2: 仅发送 MAC）
       final toAdd = newMacs.difference(currentMacs);
       for (final item in whiteList) {
         if (toAdd.contains(item.mac)) {
           try {
-            await _bleService.addWhiteListItem(item.mac, item.name);
-            results.add('✓ 添加白名单条目 ${item.name}');
+            await _bleService.addWhiteListItem(item.mac, item.mac);
+            results.add('✓ 添加白名单条目 ${item.mac}');
           } catch (e) {
-            errors.add('✗ 添加白名单条目 ${item.name} 失败: $e');
+            errors.add('✗ 添加白名单条目 ${item.mac} 失败: $e');
           }
         }
       }
@@ -256,6 +243,8 @@ class DtuService {
     }
   }
 
+  // V2: 白名单子节点配置对比（保留以备将来使用）
+  // ignore: unused_element
   bool _whiteListItemConfigEquals(WhiteListItem a, WhiteListItem b) {
     if (a.baudLevel != b.baudLevel ||
         a.parity != b.parity ||
@@ -293,16 +282,16 @@ class DtuService {
     _config = _config.copyWith(powerConfig: config);
   }
 
-  /// 添加白名单条目
-  /// CMD 0x14: BODY = MAC(6) + Tag(1) + name(N)
+  /// V2: 添加白名单条目
+  /// CMD 0x14: BODY 仅包含 MAC(6)
   Future<void> addWhiteListItem(String mac, String name) async {
     await _bleService.addWhiteListItem(mac, name);
     final newList = List<WhiteListItem>.from(_config.whiteList);
-    newList.add(WhiteListItem(mac: mac, name: name));
+    newList.add(WhiteListItem(mac: mac, name: mac));
     _config = _config.copyWith(whiteList: newList);
   }
 
-  /// 添加完整的白名单条目（包含串口参数和 Modbus 配置）
+  /// V2: 添加白名单条目（仅发送 MAC，不再包含子节点配置）
   Future<void> addWhiteListItemFull(WhiteListItem item) async {
     await _bleService.addWhiteListItemFull(item);
     final newList = List<WhiteListItem>.from(_config.whiteList);

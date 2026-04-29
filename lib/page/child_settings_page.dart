@@ -53,7 +53,7 @@ class _ChildSettingsPageState extends State<ChildSettingsPage> {
   final List<String> _stopBitsList = ['1', '2'];
 
   final List<Map<String, dynamic>> _deviceTypeOptions = [
-    {'label': '保留', 'value': 0},
+    {'label': '其他预留', 'value': DtuProtocol.DEV_TYPE_RESERVED},
     {'label': '三相电表', 'value': DtuProtocol.DEV_TYPE_THREE_PHASE_METER},
     {'label': '单相电表', 'value': DtuProtocol.DEV_TYPE_SINGLE_PHASE_METER},
     {'label': '温湿度变送器', 'value': DtuProtocol.DEV_TYPE_TEMP_HUMIDITY},

@@ -170,8 +170,8 @@ class DebugLogService {
           final power = body.isNotEmpty ? body[0] : 0;
           final powerDesc = power <= 2 ? '低功率(省电)' : (power <= 5 ? '中功率' : '高功率(远距离)');
           return '📤 【设置ROOT功率】功率等级:$power($powerDesc) 影响通信距离';
-        case 0x14: // ADD_WL_ITEM
-          if (body.length >= 7) {
+        case 0x14: // ADD_WL_ITEM (V2: 仅 MAC，无 name)
+          if (body.length >= 6) {
             final mac = body.sublist(0, 6).map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(':');
             return '📤 【添加白名单】允许MAC=$mac的设备连接';
           }
@@ -829,21 +829,17 @@ ParseResult _mergeParseResults(List<ParseResult> fragments) {
     await _checkStatus(DtuFrame.buildSetPower(config.power));
   }
 
-  /// 添加白名单条目
-  /// CMD 0x14: BODY = MAC(6) + Tag(1) + name(N)
+  /// V2: 添加白名单条目
+  /// CMD 0x14: BODY 仅包含 MAC(6)，不再包含 name_len + name
   Future<void> addWhiteListItem(String mac, String name) async {
     await _checkStatus(DtuFrame.buildAddWhiteListItem(mac, name));
   }
 
-  /// 添加完整的白名单条目（包含串口参数和 Modbus 配置）
-  /// 按文档采用两步法:
-  /// 1. CMD 0x14 (ADD_WL_ITEM) - 添加基础信息（MAC + name）
-  /// 2. CMD 0x17 (SET_WL_NODE_CFG) - 设置子节点详细配置（uart + modbus）
+  /// V2: 添加白名单条目（完整流程）
+  /// V1 两步法已废弃（CMD 0x17 SET_WL_NODE_CFG 在 V2 中移除）
+  /// V2 只发送 CMD 0x14 (ADD_WL_ITEM) 携带 MAC(6)
   Future<void> addWhiteListItemFull(WhiteListItem item) async {
-    // 步骤1: 添加基础信息 (CMD 0x14)
     await addWhiteListItem(item.mac, item.name);
-    // 步骤2: 设置子节点配置 (CMD 0x17)
-    await setChildNodeConfig(item);
   }
 
   /// 设置子节点配置（Tag 0x08）

@@ -92,7 +92,7 @@ class DtuProtocol {
   static const int DEV_TYPE_RESERVED = 0x05;           // 其他预留
 
   static const Map<int, String> deviceTypeNames = {
-    DEV_TYPE_RESERVED: '保留',
+    DEV_TYPE_RESERVED: '其他预留',
     DEV_TYPE_THREE_PHASE_METER: '三相电表',
     DEV_TYPE_SINGLE_PHASE_METER: '单相电表',
     DEV_TYPE_TEMP_HUMIDITY: '温湿度变送器',
@@ -100,7 +100,7 @@ class DtuProtocol {
   };
 
   static const Map<String, int> deviceTypeValues = {
-    '保留': DEV_TYPE_RESERVED,
+    '其他预留': DEV_TYPE_RESERVED,
     '三相电表': DEV_TYPE_THREE_PHASE_METER,
     '单相电表': DEV_TYPE_SINGLE_PHASE_METER,
     '温湿度变送器': DEV_TYPE_TEMP_HUMIDITY,

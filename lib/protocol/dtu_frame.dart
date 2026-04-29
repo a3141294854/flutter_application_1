@@ -122,7 +122,7 @@ class DtuFrame {
     body.add(items.length); // item_count
     for (final item in items) {
       body.add(item['addr'] ?? 0);
-      body.add(item['dev_type'] ?? 0);
+      body.add(item['dev_type'] ?? 0x05);
     }
     return buildFrame(DtuProtocol.CMD_SET_MODBUS_CFG, body: body);
   }
@@ -132,19 +132,14 @@ class DtuFrame {
     return buildFrame(DtuProtocol.CMD_SET_ROOT_POWER, body: [power]);
   }
 
-  /// 白名单条目 Tag (CMD 0x14)
-  static const int WL_TAG = 0x07;
-
-  /// 构建添加白名单条目请求
-  /// BODY: MAC(6) + Tag(1) + name(N)
-  /// Tag 固定为 0x07 表示白名单条目
-  /// 示例: AA 55 14 SEQ 0E 00 MAC(6) 07 "DTU_N01" CRC(2)
+  /// V2: 构建添加白名单条目请求
+  /// BODY 仅包含 MAC(6)，不再包含 name_len + name
+  /// 示例: AA 55 14 SEQ 06 00 A1 A2 A3 A4 A5 A6 CRC(2)
   static Uint8List buildAddWhiteListItem(String mac, String name) {
     final macBytes = _parseMac(mac);
-    final nameBytes = name.codeUnits;
     return buildFrame(
       DtuProtocol.CMD_ADD_WL_ITEM,
-      body: [...macBytes, WL_TAG, ...nameBytes],
+      body: macBytes,
     );
   }
 
@@ -159,7 +154,7 @@ class DtuFrame {
     required List<Map<String, int>> modbusItems,
   }) {
     final macBytes = _parseMac(mac);
-    final modbusBytes = modbusItems.expand((item) => [item['addr'] ?? 0, item['dev_type'] ?? 0]).toList();
+    final modbusBytes = modbusItems.expand((item) => [item['addr'] ?? 0, item['dev_type'] ?? 0x05]).toList();
     return buildFrame(
       DtuProtocol.CMD_SET_WL_NODE_CFG,
       body: [

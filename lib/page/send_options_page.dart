@@ -84,7 +84,7 @@ class _SendOptionsPageState extends State<SendOptionsPage> {
       if (config.whiteList.isNotEmpty) {
         buffer.writeln('白名单:');
         for (final item in config.whiteList) {
-          buffer.writeln('  ${item.name} (${item.mac})');
+          buffer.writeln('  ${item.mac}');
         }
       }
 

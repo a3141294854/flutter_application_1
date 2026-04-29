@@ -4,25 +4,79 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DTU 配置助手</title>
+  <!-- Anthropic 风格：先字体，后 Token -->
+  <link rel="stylesheet" href="skill/anthropic-style-cn/assets/fonts/fonts.css">
+  <link rel="stylesheet" href="skill/anthropic-style-cn/assets/base.css">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="https://unpkg.com/element-plus@2.4.4/dist/index.css">
 </head>
 <body>
+<svg style="display:none" aria-hidden="true">
+  <symbol id="ic-antenna" viewBox="0 0 24 24"><circle cx="12" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 14v-2M8 10a4 4 0 018 0M6 7a8 8 0 0112 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="ic-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.93 4.93l2.12 2.12m9.9 9.9l2.12 2.12m-14.14 0l2.12-2.12m9.9-9.9l2.12-2.12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="ic-list" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="2" rx="1" fill="currentColor"/><rect x="4" y="11" width="16" height="2" rx="1" fill="currentColor"/><rect x="4" y="17" width="12" height="2" rx="1" fill="currentColor"/></symbol>
+  <symbol id="ic-terminal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 9l3 3-3 3m7 0h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-serial" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 11l2 2.5L7 16m10 0V11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="ic-log" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 8h8M8 12h6M8 16h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="ic-download" viewBox="0 0 24 24"><path d="M12 4v12m-4-4l4 4 4-4M5 18h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-save" viewBox="0 0 24 24"><path d="M5 21V3h10l4 4v14H5zM16 3v6H8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 17h7M7 13h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="ic-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0115.36-6.36L21 8M21 3v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12a9 9 0 01-9 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3"/></symbol>
+  <symbol id="ic-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 11V7a4 4 0 018 0v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="ic-empty" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 2.5"/></symbol>
+  <symbol id="ic-hub" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7V3M12 21v-4M7 12H3m18 0h-4M8.46 8.46l-2.83-2.83m12.74 12.74l-2.83-2.83m0-12.74l2.83-2.83M5.63 18.37l2.83-2.83" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="ic-node" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 5v2m0 10v2M5 12h2m10 0h2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="ic-switch" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="7" fill="currentColor" opacity=".15"/><circle cx="9" cy="12" r="4" fill="currentColor"/></symbol>
+  <symbol id="ic-box" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 6l4-2h10l4 2M12 4v13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="ic-meter" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 16l4-6 4 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 8h2M6 8h2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="ic-meter-single" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M12 3v2M12 19v2M3 12h2m14 0h2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="ic-sensor" viewBox="0 0 24 24"><path d="M6 14V6h4m8 8V6h-4M2 18h20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="6" cy="18" r="1.5" fill="currentColor"/><circle cx="12" cy="18" r="1.5" fill="currentColor"/><circle cx="18" cy="18" r="1.5" fill="currentColor"/></symbol>
+  <symbol id="ic-relay" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 12l-3-2.5v5l3-2.5M8 14h3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></symbol>
+  <symbol id="ic-chevron-down" viewBox="0 0 12 12"><path d="M3 5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-close" viewBox="0 0 16 16"><path d="M3 3l10 10M13 3L3 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="ic-status" viewBox="0 0 12 12"><circle cx="6" cy="6" r="2" fill="currentColor"/><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1" opacity=".35"/></symbol>
+</svg>
+
 <div id="app">
   <div class="app-container">
-    <!-- 头部 -->
     <header class="app-header">
-      <div class="header-brand">
-        <div class="header-logo">📡</div>
-        <div class="header-title">DTU 配置助手</div>
+      <div class="device-info-left">
+        <div class="device-icon"><svg width="20" height="20"><use href="#ic-antenna"/></svg></div>
+        <div class="device-details">
+          <div class="device-name">DTU 配置助手</div>
+          <div class="device-status">
+            <svg width="10" height="10"><use href="#ic-status"/></svg>
+            <span class="status-text">就绪</span>
+          </div>
+        </div>
       </div>
-      <div class="header-actions">
-        <div class="status-badge" :class="connectionClass">
-          <span class="status-dot"></span>
-          <span>{{ connectionText }}</span>
+      
+      <div class="header-mode-switch">
+        <div class="compact-mode-card">
+          <div class="mode-title">
+            <svg width="14" height="14" aria-hidden="true"><use href="#ic-switch"/></svg>
+            <span class="mode-title-text">工作模式</span>
+          </div>
+          <div class="compact-mode-buttons">
+            <button class="compact-mode-btn root" :class="{ active: deviceMode === 'root' }" @click="deviceMode = 'root'">
+              <svg width="13" height="13" aria-hidden="true"><use href="#ic-hub"/></svg>
+              根节点
+            </button>
+            <button class="compact-mode-btn child" :class="{ active: deviceMode === 'child' }" @click="deviceMode = 'child'">
+              <svg width="13" height="13" aria-hidden="true"><use href="#ic-node"/></svg>
+              子节点
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="header-actions-right">
+        <div class="connection-badge" :class="connectionClass">
+          <span class="connection-dot"></span>
+          <span class="connection-text">{{ connectionText }}</span>
         </div>
         <button class="btn btn-secondary" @click="simulateConnect" v-if="!serialConnected">
-          🔧 模拟连接
+          模拟连接
         </button>
         <button class="btn btn-primary" :disabled="scanning" @click="toggleConnection">
           {{ serialConnected ? '断开连接' : '连接USB' }}
@@ -30,43 +84,38 @@
       </div>
     </header>
 
-    <!-- 主内容 -->
     <main class="app-main">
-      <!-- 侧边栏 -->
       <aside class="sidebar">
         <div class="sidebar-card">
           <div class="sidebar-header">导航菜单</div>
           <div class="sidebar-menu">
             <div class="menu-item" :class="{ active: currentPage === 'settings' }" @click="goTo('settings')">
-              <span class="menu-icon">⚙️</span>
+              <svg class="menu-icon" width="16" height="16"><use href="#ic-settings"/></svg>
               <span>数据设置</span>
             </div>
-            <div class="menu-item" :class="{ active: currentPage === 'send' }" @click="goTo('send')">
-              <span class="menu-icon">📤</span>
-              <span>命令发送</span>
+            <div v-if="deviceMode === 'root'" class="menu-item" :class="{ active: currentPage === 'whitelist' }" @click="goTo('whitelist')">
+              <svg class="menu-icon" width="16" height="16"><use href="#ic-list"/></svg>
+              <span>子设备白名单</span>
             </div>
             <div class="menu-item" :class="{ active: currentPage === 'terminal' }" @click="goTo('terminal')">
-              <span class="menu-icon">💻</span>
+              <svg class="menu-icon" width="16" height="16"><use href="#ic-terminal"/></svg>
               <span>调试终端</span>
             </div>
           </div>
         </div>
       </aside>
 
-      <!-- 内容区 -->
       <section class="content">
-        <!-- 数据设置 -->
         <template v-if="currentPage === 'settings'">
           <div class="page-header">
             <h1 class="page-title">数据设置</h1>
             <p class="page-subtitle">配置串口参数、Modbus 地址和设备信息</p>
           </div>
 
-          <!-- 串口参数配置 -->
           <div class="card">
             <div class="card-header">
               <div class="card-title">
-                <span class="card-title-icon blue">🔧</span>
+                <span class="card-title-icon blue"><svg width="16" height="16"><use href="#ic-serial"/></svg></span>
                 串口参数配置
               </div>
             </div>
@@ -77,14 +126,12 @@
                   <div class="select" @click.stop>
                     <div class="select-trigger" @click="showSelect('baudRate')">
                       {{ getSelectLabel('baudRate') }}
-                      <span class="select-arrow">▼</span>
+                      <span class="select-arrow"><svg width="10" height="10"><use href="#ic-chevron-down"/></svg></span>
                     </div>
                     <div class="select-dropdown" id="select-baudRate" style="display:none">
                       <div v-for="rate in baudRates" :key="rate" class="select-option" 
                            :class="{ selected: serialParams.baudRate === rate }"
-                           @click="selectOption('baudRate', rate)">
-                        {{ rate }}
-                      </div>
+                           @click="selectOption('baudRate', rate)">{{ rate }}</div>
                     </div>
                   </div>
                 </div>
@@ -94,14 +141,12 @@
                   <div class="select" @click.stop>
                     <div class="select-trigger" @click="showSelect('dataBits')">
                       {{ getSelectLabel('dataBits') }}
-                      <span class="select-arrow">▼</span>
+                      <span class="select-arrow"><svg width="10" height="10"><use href="#ic-chevron-down"/></svg></span>
                     </div>
                     <div class="select-dropdown" id="select-dataBits" style="display:none">
                       <div v-for="bits in dataBitsOptions" :key="bits" class="select-option"
                            :class="{ selected: serialParams.dataBits === bits }"
-                           @click="selectOption('dataBits', bits)">
-                        {{ bits }}
-                      </div>
+                           @click="selectOption('dataBits', bits)">{{ bits }}</div>
                     </div>
                   </div>
                 </div>
@@ -111,14 +156,12 @@
                   <div class="select" @click.stop>
                     <div class="select-trigger" @click="showSelect('stopBits')">
                       {{ getSelectLabel('stopBits') }}
-                      <span class="select-arrow">▼</span>
+                      <span class="select-arrow"><svg width="10" height="10"><use href="#ic-chevron-down"/></svg></span>
                     </div>
                     <div class="select-dropdown" id="select-stopBits" style="display:none">
                       <div v-for="bits in stopBitsOptions" :key="bits" class="select-option"
                            :class="{ selected: serialParams.stopBits === bits }"
-                           @click="selectOption('stopBits', bits)">
-                        {{ bits }}
-                      </div>
+                           @click="selectOption('stopBits', bits)">{{ bits }}</div>
                     </div>
                   </div>
                 </div>
@@ -128,71 +171,50 @@
                   <div class="select" @click.stop>
                     <div class="select-trigger" @click="showSelect('parity')">
                       {{ getSelectLabel('parity') }}
-                      <span class="select-arrow">▼</span>
+                      <span class="select-arrow"><svg width="10" height="10"><use href="#ic-chevron-down"/></svg></span>
                     </div>
                     <div class="select-dropdown" id="select-parity" style="display:none">
                       <div v-for="opt in parityOptions" :key="opt.value" class="select-option"
                            :class="{ selected: serialParams.parity === opt.value }"
-                           @click="selectOption('parity', opt.value)">
-                        {{ opt.label }}
-                      </div>
+                           @click="selectOption('parity', opt.value)">{{ opt.label }}</div>
                     </div>
                   </div>
                 </div>
-                <div style="margin-left:auto">
-                  <button class="btn btn-primary" :disabled="!serialConnected" @click="applySerialParams">
-                    应用参数
-                  </button>
+                <div class="param-divider"></div>
+                <div class="param-item">
+                  <span class="param-label">SLE功率</span>
+                  <div class="select" @click.stop>
+                    <div class="select-trigger" @click="showSelect('slePower')">
+                      {{ slePower }}
+                      <span class="select-arrow"><svg width="10" height="10"><use href="#ic-chevron-down"/></svg></span>
+                    </div>
+                    <div class="select-dropdown" id="select-slePower" style="display:none">
+                      <div v-for="power in [0,1,2,3,4,5,6,7]" :key="power" class="select-option"
+                           :class="{ selected: slePower === power }"
+                           @click="selectOption('slePower', power)">{{ power }}</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="param-action">
+                  <button class="btn btn-primary" :disabled="!serialConnected" @click="applySerialParams">应用参数</button>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- 模式切换 -->
-          <div class="card mode-card">
-            <div class="card-header">
-              <div class="card-title">
-                <span class="card-title-icon blue">⚡</span>
-                工作模式
-              </div>
-              <span class="mode-badge" :class="deviceMode">
-                {{ deviceMode === 'root' ? '主控模式' : '子节点模式' }}
-              </span>
-            </div>
-            <div class="card-body">
-              <div class="radio-group mode-switch">
-                <div class="radio-button root-mode" :class="{ active: deviceMode === 'root' }" @click="deviceMode = 'root'">
-                  <span class="radio-circle"><span class="radio-circle-inner"></span></span>
-                  <span class="mode-icon">🌐</span>
-                  <span>根节点</span>
-                  <span class="mode-desc">主控设备，可配置所有参数</span>
-                </div>
-                <div class="radio-button child-mode" :class="{ active: deviceMode === 'child' }" @click="deviceMode = 'child'">
-                  <span class="radio-circle"><span class="radio-circle-inner"></span></span>
-                  <span class="mode-icon">📡</span>
-                  <span>子节点</span>
-                  <span class="mode-desc">被控设备，参数受限于主控</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Modbus 地址 -->
           <div class="card">
             <div class="card-header">
               <div class="card-title">
-                <span class="card-title-icon blue">📍</span>
+                <span class="card-title-icon green"><svg width="16" height="16"><use href="#ic-grid"/></svg></span>
                 Modbus 地址预设
               </div>
-              <button class="btn btn-sm btn-dashed" @click="resetModbusAddresses" :disabled="!serialConnected">
-                重置默认
-              </button>
+              <button class="btn btn-sm btn-dashed" @click="resetModbusAddresses" :disabled="!serialConnected">重置默认</button>
             </div>
             <div class="card-body">
               <div class="modbus-grid">
                 <div v-for="i in 8" :key="i" class="modbus-item" :class="{ disabled: !serialConnected }"
                      @click="serialConnected && showModbusEditor(i-1)">
-                  <div class="modbus-label">{{ modbusDeviceTypes[i-1] }}</div>
+                  <div class="modbus-label">{{ getDeviceTypeLabel(modbusDeviceTypes[i-1]) }}</div>
                   <div class="modbus-value">{{ modbusAddresses[i-1] }}</div>
                   <div class="modbus-hint">地址 {{ i }}</div>
                 </div>
@@ -200,80 +222,113 @@
             </div>
           </div>
 
-          <!-- 设备类型 -->
+          <div style="display:flex;gap:12px">
+            <button class="btn btn-primary btn-lg" @click="saveSettings">
+              <svg width="18" height="18"><use href="#ic-save"/></svg>保存设置
+            </button>
+            <button class="btn btn-default btn-lg" @click="loadSettings">
+              <svg width="18" height="18"><use href="#ic-download"/></svg>读取设置
+            </button>
+            <button class="btn btn-dashed btn-lg" @click="resetSettings">
+              <svg width="18" height="18"><use href="#ic-reset"/></svg>恢复出厂
+            </button>
+          </div>
+        </template>
+
+        <template v-if="currentPage === 'terminal'">
+          <div class="page-header">
+            <h1 class="page-title">调试终端</h1>
+            <p class="page-subtitle">实时查看串口通信数据，发送预设命令或自定义十六进制指令</p>
+          </div>
+
+          <div class="send-grid">
+            <div class="send-card" :class="{ disabled: !serialConnected }" @click="dtuOperations.readAllConfig()">
+              <div class="send-icon"><svg width="22" height="22"><use href="#ic-download"/></svg></div>
+              <div class="send-title">读取配置</div>
+              <div class="send-desc">读取所有配置</div>
+            </div>
+            <div class="send-card" :class="{ disabled: !serialConnected }" @click="saveSettings">
+              <div class="send-icon"><svg width="22" height="22"><use href="#ic-save"/></svg></div>
+              <div class="send-title">保存配置</div>
+              <div class="send-desc">写入参数到设备</div>
+            </div>
+            <div class="send-card" :class="{ disabled: !serialConnected }" @click="resetSettings">
+              <div class="send-icon"><svg width="22" height="22"><use href="#ic-reset"/></svg></div>
+              <div class="send-title">恢复出厂</div>
+              <div class="send-desc">重启并清除配置</div>
+            </div>
+          </div>
+
           <div class="card">
             <div class="card-header">
               <div class="card-title">
-                <span class="card-title-icon green">📱</span>
-                设备类型
+                <span class="card-title-icon purple"><svg width="16" height="16"><use href="#ic-log"/></svg></span>
+                通信日志
+              </div>
+              <div style="margin-left:auto;display:flex;gap:12px">
+                <label class="checkbox" :class="{ checked: autoScroll }">
+                  <span class="checkbox-box"></span><span>自动滚动</span>
+                </label>
+                <label class="checkbox" :class="{ checked: hexDisplay }">
+                  <span class="checkbox-box"></span><span>十六进制显示</span>
+                </label>
+                <button class="btn btn-sm btn-dashed" @click="clearLogs">清空日志</button>
               </div>
             </div>
             <div class="card-body">
-              <div class="device-type-grid">
-                <div v-for="(type, index) in deviceTypes" :key="index"
-                     class="device-type-item" :class="{ active: deviceType === index }"
-                     @click="deviceType = index">
-                  <div class="device-type-icon">{{ ['🔒', '⚡', '💡', '🌡️', '🔌'][index] }}</div>
-                  <div class="device-type-name">{{ type }}</div>
+              <div class="terminal" style="min-height:400px">
+                <div v-for="(log, index) in logs" :key="index" class="terminal-line">
+                  <span class="terminal-time">[{{ log.time }}]</span>
+                  <span class="terminal-type" :class="log.level">{{ log.type }}</span>
+                  <span class="terminal-data">{{ log.data }}</span>
                 </div>
+              </div>
+              <div style="margin-top:16px;display:flex;gap:12px">
+                <input type="text" class="input" style="flex:1" v-model="terminalInput"
+                       placeholder="输入十六进制命令并按回车发送"
+                       :disabled="!serialConnected"
+                       @keyup.enter="sendTerminalCommand">
+                <button class="btn btn-primary" @click="sendTerminalCommand" :disabled="!serialConnected">发送</button>
               </div>
             </div>
           </div>
+        </template>
 
-          <!-- SLE 发射功率 -->
-          <div class="card power-card">
-            <div class="card-header">
-              <div class="card-title">
-                <span class="card-title-icon orange">📶</span>
-                SLE 发射功率
-              </div>
-              <span class="power-badge">{{ slePower }} (0-7)</span>
-            </div>
-            <div class="card-body">
-              <div class="power-slider">
-                <div class="slider-track" @click="setPowerByClick($event)">
-                  <div class="slider-fill" :style="{ width: (slePower / 7 * 100) + '%' }"></div>
-                  <div class="slider-thumb" :style="{ left: (slePower / 7 * 100) + '%' }" 
-                       @mousedown="startDrag"></div>
-                </div>
-                <div class="slider-dots">
-                  <span v-for="i in 8" :key="i" class="slider-dot" 
-                        :class="{ active: i <= slePower + 1 }"
-                        @click="slePower = i - 1">{{ i - 1 }}</span>
-                </div>
-              </div>
-            </div>
+        <template v-if="currentPage === 'whitelist'">
+          <div class="page-header">
+            <h1 class="page-title">子设备白名单</h1>
           </div>
 
-          <!-- 子设备白名单 (仅根节点) -->
-          <div class="card" v-if="deviceMode === 'root'">
+          <div class="card">
             <div class="card-header">
               <div class="card-title">
-                <span class="card-title-icon green">📋</span>
+                <span class="card-title-icon blue"><svg width="16" height="16"><use href="#ic-list"/></svg></span>
                 子设备白名单
               </div>
               <div style="display:flex;gap:8px">
                 <button class="btn btn-primary" @click="addDevice" :disabled="devices.length >= 8">
-                  + 添加设备
+                  <svg width="14" height="14"><use href="#ic-plus"/></svg>添加设备
                 </button>
                 <button class="btn btn-default" @click="refreshDevices">
-                  刷新
+                  <svg width="14" height="14"><use href="#ic-reset"/></svg>刷新
                 </button>
               </div>
             </div>
             <div class="card-body">
-              <div v-if="devices.length === 0" class="empty-state">
-                <div class="empty-icon">📡</div>
+              <div v-if="deviceMode !== 'root'" class="empty-state">
+                <div class="empty-icon"><svg width="52" height="52"><use href="#ic-lock"/></svg></div>
+                <div class="empty-title">白名单功能不可用</div>
+                <div class="empty-desc">请在设备模式中切换到"根节点"模式以使用白名单功能</div>
+              </div>
+              <div v-else-if="devices.length === 0" class="empty-state">
+                <div class="empty-icon"><svg width="52" height="52"><use href="#ic-empty"/></svg></div>
                 <div class="empty-title">暂无设备</div>
                 <div class="empty-desc">点击"添加设备"开始配置，最多支持8个子设备</div>
               </div>
               <div class="device-list" v-else>
                 <div v-for="(device, index) in devices" :key="index" class="device-card">
                   <div class="device-header">
-                    <span class="device-name">{{ device.name || '设备 ' + (index + 1) }}</span>
-                    <span class="device-status" :class="device.connected ? 'online' : 'offline'">
-                      {{ device.connected ? '在线' : '离线' }}
-                    </span>
+                    <span class="device-mac-title">MAC地址</span>
                   </div>
                   <div class="device-mac">{{ device.mac || '未设置MAC' }}</div>
                   <div style="display:flex;gap:8px">
@@ -284,162 +339,29 @@
               </div>
             </div>
           </div>
-
-          <!-- 操作按钮 -->
-          <div style="display:flex;gap:12px">
-            <button class="btn btn-primary btn-lg" @click="saveSettings">💾 保存设置</button>
-            <button class="btn btn-default btn-lg" @click="loadSettings">📖 读取设置</button>
-            <button class="btn btn-dashed btn-lg" @click="resetSettings">🔄 恢复出厂</button>
-          </div>
-        </template>
-
-        <!-- 命令发送 -->
-        <template v-if="currentPage === 'send'">
-          <div class="page-header">
-            <h1 class="page-title">命令发送</h1>
-            <p class="page-subtitle">发送预设命令或自定义十六进制指令</p>
-          </div>
-
-          <div class="send-grid">
-            <div class="send-card" :class="{ disabled: !serialConnected }" @click="sendCommand('READ')">
-              <div class="send-icon">📖</div>
-              <div class="send-title">读取配置</div>
-              <div class="send-desc">READ</div>
-            </div>
-            <div class="send-card" :class="{ disabled: !serialConnected }" @click="sendCommand('SAVE')">
-              <div class="send-icon">💾</div>
-              <div class="send-title">保存配置</div>
-              <div class="send-desc">SAVE</div>
-            </div>
-            <div class="send-card" :class="{ disabled: !serialConnected }" @click="sendCommand('RESET')">
-              <div class="send-icon">🔄</div>
-              <div class="send-title">恢复出厂</div>
-              <div class="send-desc">RESET</div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">
-                <span class="card-title-icon blue">⌨️</span>
-                自定义命令
-              </div>
-            </div>
-            <div class="card-body">
-              <div style="display:flex;gap:12px">
-                <input type="text" class="input" style="flex:1" v-model="customCommand"
-                       placeholder="输入十六进制命令，如: 01 03 00 00 00 0A C5 CD"
-                       :disabled="!serialConnected">
-                <button class="btn btn-primary" @click="sendCustomCommand" :disabled="!serialConnected">
-                  发送
-                </button>
-              </div>
-              <div style="margin-top:12px;padding:12px;background:var(--bg-body);border-radius:var(--radius-sm);font-family:monospace;font-size:13px">
-                命令预览: {{ formatCommandPreview }}
-              </div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">
-                <span class="card-title-icon purple">📋</span>
-                通信日志
-              </div>
-              <button class="btn btn-sm btn-dashed" @click="clearLogs">清空</button>
-            </div>
-            <div class="card-body">
-              <div class="terminal" ref="logContainer">
-                <div v-for="(log, index) in logs" :key="index" class="terminal-line">
-                  <span class="terminal-time">[{{ log.time }}]</span>
-                  <span class="terminal-type" :class="log.level">{{ log.type }}</span>
-                  <span class="terminal-data">{{ log.data }}</span>
-                </div>
-                <div v-if="logs.length === 0" style="color:#6a9955;text-align:center;padding:20px">
-                  暂无日志，请连接USB设备
-                </div>
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <!-- 调试终端 -->
-        <template v-if="currentPage === 'terminal'">
-          <div class="page-header">
-            <h1 class="page-title">调试终端</h1>
-            <p class="page-subtitle">实时查看串口通信数据</p>
-          </div>
-
-          <div class="card">
-            <div class="card-body">
-              <div class="terminal" style="min-height:400px" ref="terminalContainer">
-                <div v-for="(log, index) in logs" :key="index" class="terminal-line">
-                  <span class="terminal-time">[{{ log.time }}]</span>
-                  <span class="terminal-type" :class="log.level">{{ log.type }}</span>
-                  <span class="terminal-data">{{ log.data }}</span>
-                </div>
-              </div>
-
-              <div style="margin-top:16px;display:flex;gap:12px">
-                <input type="text" class="input" style="flex:1" v-model="terminalInput"
-                       placeholder="输入十六进制命令并按回车发送"
-                       :disabled="!serialConnected"
-                       @keyup.enter="sendTerminalCommand">
-                <button class="btn btn-primary" @click="sendTerminalCommand" :disabled="!serialConnected">
-                  发送
-                </button>
-              </div>
-
-              <div style="margin-top:16px;display:flex;gap:20px">
-                <label class="checkbox" :class="{ checked: autoScroll }">
-                  <span class="checkbox-box"></span>
-                  <span>自动滚动</span>
-                </label>
-                <label class="checkbox" :class="{ checked: hexDisplay }">
-                  <span class="checkbox-box"></span>
-                  <span>十六进制显示</span>
-                </label>
-                <button class="btn btn-sm btn-dashed" style="margin-left:auto" @click="clearLogs">
-                  清空日志
-                </button>
-              </div>
-            </div>
-          </div>
         </template>
       </section>
     </main>
   </div>
 
   <!-- 设备编辑对话框 -->
-  <div class="modal-overlay" v-if="deviceDialogVisible" @click.self="deviceDialogVisible = false">
+  <div class="modal-overlay" v-if="deviceDialogVisible" @click.self="closeDeviceDialog">
     <div class="modal">
       <div class="modal-header">
         <div class="modal-title">{{ editingIndex >= 0 ? '编辑设备' : '添加设备' }}</div>
-        <div class="modal-close" @click="deviceDialogVisible = false">×</div>
+        <div class="modal-close" @click="closeDeviceDialog">
+          <svg width="14" height="14"><use href="#ic-close"/></svg>
+        </div>
       </div>
       <div class="modal-body">
         <div class="form-section">
-          <div class="form-item">
-            <label class="form-label">设备名称</label>
-            <input type="text" class="input" v-model="editingDevice.name" placeholder="请输入设备名称">
-          </div>
+          <div class="form-section-title">MAC 地址</div>
+          <input type="text" class="input" v-model="editingDevice.mac" placeholder="XX:XX:XX:XX:XX:XX">
         </div>
         <div class="form-section">
-          <div class="form-item">
-            <label class="form-label">MAC地址</label>
-            <input type="text" class="input" v-model="editingDevice.mac" placeholder="XX:XX:XX:XX:XX:XX">
-          </div>
-        </div>
-        <div class="form-section">
-          <div class="form-item">
-            <label class="form-label">Modbus地址</label>
-            <input type="number" class="input" v-model="editingDevice.modbusAddr" min="1" max="247">
-          </div>
-        </div>
-        <div class="form-section">
-          <div class="form-section-title" style="cursor:pointer" @click="serialParamsExpanded = !serialParamsExpanded">
+          <div class="form-section-title form-section-title--expandable" @click="serialParamsExpanded = !serialParamsExpanded">
             串口参数
-            <span class="expand-icon" :class="{ expanded: serialParamsExpanded }">▼</span>
+            <span class="expand-icon" :class="{ expanded: serialParamsExpanded }"><svg width="10" height="10"><use href="#ic-chevron-down"/></svg></span>
           </div>
           <div v-show="serialParamsExpanded" class="serial-params-expanded">
             <div class="form-row">
@@ -448,14 +370,10 @@
                 <div class="select" @click.stop>
                   <div class="select-trigger" @click="showSelect('editBaudRate')">
                     {{ editingDevice.baudRate || '请选择' }}
-                    <span class="select-arrow">▼</span>
+                    <span class="select-arrow"><svg width="10" height="10"><use href="#ic-chevron-down"/></svg></span>
                   </div>
                   <div class="select-dropdown" id="select-editBaudRate" style="display:none">
-                    <div v-for="rate in baudRates" :key="rate" class="select-option" 
-                         :class="{ selected: editingDevice.baudRate === rate }"
-                         @click="editingDevice.baudRate = rate; document.getElementById('select-editBaudRate').style.display='none'">
-                      {{ rate }}
-                    </div>
+                    <div v-for="rate in baudRates" :key="rate" class="select-option" @click="selectModalOption('baudRate', rate)">{{ rate }}</div>
                   </div>
                 </div>
               </div>
@@ -464,32 +382,24 @@
                 <div class="select" @click.stop>
                   <div class="select-trigger" @click="showSelect('editDataBits')">
                     {{ editingDevice.dataBits || '请选择' }}
-                    <span class="select-arrow">▼</span>
+                    <span class="select-arrow"><svg width="10" height="10"><use href="#ic-chevron-down"/></svg></span>
                   </div>
                   <div class="select-dropdown" id="select-editDataBits" style="display:none">
-                    <div v-for="bits in dataBitsOptions" :key="bits" class="select-option"
-                         :class="{ selected: editingDevice.dataBits === bits }"
-                         @click="editingDevice.dataBits = bits; document.getElementById('select-editDataBits').style.display='none'">
-                      {{ bits }}
-                    </div>
+                    <div v-for="bits in dataBitsOptions" :key="bits" class="select-option" @click="selectModalOption('dataBits', bits)">{{ bits }}</div>
                   </div>
                 </div>
               </div>
             </div>
-            <div class="form-row" style="margin-top:12px">
+            <div class="form-row">
               <div class="form-item">
                 <label class="form-label">停止位</label>
                 <div class="select" @click.stop>
                   <div class="select-trigger" @click="showSelect('editStopBits')">
                     {{ editingDevice.stopBits || '请选择' }}
-                    <span class="select-arrow">▼</span>
+                    <span class="select-arrow"><svg width="10" height="10"><use href="#ic-chevron-down"/></svg></span>
                   </div>
                   <div class="select-dropdown" id="select-editStopBits" style="display:none">
-                    <div v-for="bits in stopBitsOptions" :key="bits" class="select-option"
-                         :class="{ selected: editingDevice.stopBits === bits }"
-                         @click="editingDevice.stopBits = bits; document.getElementById('select-editStopBits').style.display='none'">
-                      {{ bits }}
-                    </div>
+                    <div v-for="bits in stopBitsOptions" :key="bits" class="select-option" @click="selectModalOption('stopBits', bits)">{{ bits }}</div>
                   </div>
                 </div>
               </div>
@@ -498,14 +408,10 @@
                 <div class="select" @click.stop>
                   <div class="select-trigger" @click="showSelect('editParity')">
                     {{ getParityLabel(editingDevice.parity) }}
-                    <span class="select-arrow">▼</span>
+                    <span class="select-arrow"><svg width="10" height="10"><use href="#ic-chevron-down"/></svg></span>
                   </div>
                   <div class="select-dropdown" id="select-editParity" style="display:none">
-                    <div v-for="opt in parityOptions" :key="opt.value" class="select-option"
-                         :class="{ selected: editingDevice.parity === opt.value }"
-                         @click="editingDevice.parity = opt.value; document.getElementById('select-editParity').style.display='none'">
-                      {{ opt.label }}
-                    </div>
+                    <div v-for="opt in parityOptions" :key="opt.value" class="select-option" @click="selectModalOption('parity', opt.value)">{{ opt.label }}</div>
                   </div>
                 </div>
               </div>
@@ -514,7 +420,7 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-default" @click="deviceDialogVisible = false">取消</button>
+        <button class="btn btn-default" @click="closeDeviceDialog">取消</button>
         <button class="btn btn-primary" @click="saveDevice">确定</button>
       </div>
     </div>
@@ -524,12 +430,11 @@
   <div class="modal-overlay" v-if="modbusDialogVisible" @click.self="modbusDialogVisible = false">
     <div class="modal">
       <div class="modal-header">
-        <div class="modal-title">
-          <span class="modal-icon">⚙️</span>
-          Modbus 预设
-        </div>
+        <div class="modal-title">Modbus 预设</div>
         <span class="modal-badge">#{{ modbusEditIndex + 1 }}</span>
-        <div class="modal-close" @click="modbusDialogVisible = false">×</div>
+        <div class="modal-close" @click="modbusDialogVisible = false">
+          <svg width="14" height="14"><use href="#ic-close"/></svg>
+        </div>
       </div>
       <div class="modal-body">
         <div class="form-section">
@@ -538,8 +443,10 @@
             <div v-for="(type, idx) in deviceTypeOptions" :key="idx" 
                  class="type-item" :class="{ active: modbusEditType === idx }"
                  @click="modbusEditType = idx">
-              <span class="type-icon">{{ ['📦', '🔒', '⚡', '💡', '🌡️', '🔌'][idx] }}</span>
-              <span class="type-name">{{ type }}</span>
+              <svg class="type-icon" width="22" height="22">
+                <use :href="['#ic-box','#ic-meter','#ic-meter-single','#ic-sensor','#ic-relay'][idx]"/>
+              </svg>
+              <span class="type-name">{{ type.label }}</span>
             </div>
           </div>
         </div>
@@ -562,7 +469,6 @@
 </div>
 
 <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-<script src="https://unpkg.com/element-plus@2.4.4/dist/index.full.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

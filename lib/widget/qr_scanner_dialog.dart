@@ -103,7 +103,7 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
     // 格式3: 直接是 MAC 地址
     final cleanedMac = content.replaceAll('-', ':').toUpperCase();
     if (_isValidMac(cleanedMac)) {
-      return (name: '设备', mac: cleanedMac);
+      return (name: cleanedMac, mac: cleanedMac); // V2: name = mac
     }
     
     return null;
@@ -319,7 +319,7 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  '支持的格式: JSON / BT:名称:MAC / name:xxx;mac:xxx',
+                  '支持的格式: JSON / BT:名称:MAC / name:xxx;mac:xxx / 纯MAC地址',
                   style: TextStyle(color: Colors.white38, fontSize: 11),
                   textAlign: TextAlign.center,
                 ),

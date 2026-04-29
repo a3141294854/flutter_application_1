@@ -166,7 +166,8 @@ class ModbusConfig {
     int offset = 2;
     while (offset + 1 < body.length && parsedItems < itemCount) {
       final addr = body[offset];
-      final devType = body[offset + 1];
+      int devType = body[offset + 1];
+      if (devType == 0) devType = 0x05; // 0 非法，回退为"其他预留"
       items.add(ModbusItem(addr: addr, devType: devType));
       log('item[$parsedItems]: addr=$addr, devType=$devType (0x${devType.toRadixString(16).toUpperCase()})');
       offset += 2;
@@ -180,7 +181,7 @@ class ModbusConfig {
   /// 默认配置（8 个空项）
   factory ModbusConfig.defaultConfig() {
     return ModbusConfig(
-      items: List.generate(8, (i) => ModbusItem(addr: i + 1, devType: 0)),
+      items: List.generate(8, (i) => ModbusItem(addr: i + 1, devType: 0x05)),
     );
   }
 
@@ -218,17 +219,16 @@ class WhiteListItem {
   /// 获取地址列表（兼容用）
   List<int> get modbusAddresses => modbusItems.map((e) => e.addr).toList();
 
-  /// 从字节解析（Tag 0x07 格式：MAC + name_len + name）
+  /// V2: 从字节解析白名单条目（仅 MAC(6)，不再包含 name_len + name）
+  /// name 字段设置为 mac 值（兼容旧代码）
   factory WhiteListItem.fromTag07(List<int> bytes) {
-    if (bytes.length < 7) {
+    if (bytes.length < 6) {
       throw FormatException('白名单条目数据长度不足: ${bytes.length}');
     }
 
     final mac = DtuFrame.formatMac(bytes.sublist(0, 6));
-    final nameLen = bytes[6];
-    final name = String.fromCharCodes(bytes.sublist(7, 7 + nameLen));
-
-    return WhiteListItem(mac: mac, name: name);
+    // V2: 白名单不再包含 name 字段，name = mac 以便旧代码兼容
+    return WhiteListItem(mac: mac, name: mac);
   }
 
   /// 从字节解析（Tag 0x08 请求格式：MAC + uart + modbus）
@@ -352,7 +352,7 @@ class WhiteListResult {
     required this.items,
   }) : isComplete = fragTotal <= 1 || fragIdx == fragTotal || fragIdx == fragTotal - 1;
 
-  /// 从响应 BODY 解析
+  /// V2: 从响应 BODY 解析白名单（每条 item 仅 6 字节 MAC）
   factory WhiteListResult.fromBytes(Uint8List body) {
     if (body.length < 5) {
       throw FormatException('白名单数据长度不足: ${body.length}');
@@ -368,24 +368,14 @@ class WhiteListResult {
     final wlTotal = body[3];
     final itemCount = body[4];
 
-    // 解析白名单项
+    // V2: 每个 item 固定 6 字节（仅 MAC），不再包含 name_len + name
     final items = <WhiteListItem>[];
     int offset = 5;
     for (int i = 0; i < itemCount; i++) {
-      if (offset >= body.length) break;
-
-      // 获取 name_len
-      if (offset + 7 > body.length) break;
-      final nameLen = body[offset + 6];
-      final itemLen = 6 + 1 + nameLen; // mac + name_len + name
-
-      if (offset + itemLen <= body.length) {
-        final itemBytes = body.sublist(offset, offset + itemLen);
-        items.add(WhiteListItem.fromTag07(itemBytes));
-        offset += itemLen;
-      } else {
-        break;
-      }
+      if (offset + 6 > body.length) break;
+      final itemBytes = body.sublist(offset, offset + 6);
+      items.add(WhiteListItem.fromTag07(itemBytes));
+      offset += 6;
     }
 
     return WhiteListResult(

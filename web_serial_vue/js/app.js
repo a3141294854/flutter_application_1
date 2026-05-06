@@ -126,6 +126,56 @@ const DtuProtocol = {
     return this.statusNames[status] || `未知错误(0x${status.toString(16).padStart(2, '0')})`;
   },
 
+  // 命令名称映射
+  getCmdName(cmd) {
+    const map = {
+      0x01: 'READ_DEV_INFO',    0x02: 'READ_UART_CFG',   0x03: 'READ_MODBUS_CFG',
+      0x04: 'READ_WL_CFG',      0x05: 'READ_POWER',      0x06: 'GET_MODE_STATUS',
+      0x07: 'READ_WL_NODE_CFG',
+      0x10: 'SET_ROLE',         0x11: 'SET_UART_CFG',    0x12: 'SET_MODBUS_CFG',
+      0x13: 'SET_POWER',        0x14: 'ADD_WL_ITEM',     0x15: 'DEL_WL_ITEM',
+      0x16: 'CLEAR_WL',         0x17: 'SET_WL_NODE_CFG',
+      0x20: 'COMMIT',           0x21: 'REBOOT',          0x22: 'FACTORY_RESET',
+      0x81: 'READ_DEV_INFO_RSP', 0x82: 'READ_UART_CFG_RSP', 0x83: 'READ_MODBUS_CFG_RSP',
+      0x84: 'READ_WL_CFG_RSP',   0x85: 'READ_POWER_RSP',    0x86: 'GET_MODE_STATUS_RSP',
+      0x87: 'READ_WL_NODE_CFG_RSP',
+      0x90: 'SET_ROLE_RSP',      0x91: 'SET_UART_CFG_RSP',  0x92: 'SET_MODBUS_CFG_RSP',
+      0x93: 'SET_POWER_RSP',     0x94: 'ADD_WL_ITEM_RSP',   0x95: 'DEL_WL_ITEM_RSP',
+      0x96: 'CLEAR_WL_RSP',      0x97: 'SET_WL_NODE_CFG_RSP',
+      0xA0: 'COMMIT_RSP',        0xA1: 'REBOOT_RSP',        0xA2: 'FACTORY_RESET_RSP',
+    };
+    return map[cmd] || `CMD_0x${cmd.toString(16).padStart(2, '0').toUpperCase()}`;
+  },
+
+  // 命令中文描述
+  getCmdDescription(cmd, status) {
+    const isResp = (cmd & 0x80) !== 0;
+    const reqCmd = isResp ? (cmd & 0x7F) : cmd;
+    const prefix = isResp ? '📥' : '📤';
+    const statusStr = status !== undefined ? ` (${this.getStatusName(status)})` : '';
+    const map = {
+      0x01: `${prefix} 【设备信息】获取DTU的MAC地址、名称、角色${statusStr}`,
+      0x02: `${prefix} 【串口配置】读取串口波特率/数据位/停止位/校验位${statusStr}`,
+      0x03: `${prefix} 【Modbus配置】读取8个Modbus预设地址和类型${statusStr}`,
+      0x04: `${prefix} 【白名单】读取白名单设备MAC列表${statusStr}`,
+      0x05: `${prefix} 【功率】读取SLE发射功率等级${statusStr}`,
+      0x06: `${prefix} 【模式状态】读取当前工作模式和角色${statusStr}`,
+      0x07: `${prefix} 【子节点配置】读取白名单子节点的串口+Modbus配置${statusStr}`,
+      0x10: `${prefix} 【设置角色】切换为ROOT/NODE模式${statusStr}`,
+      0x11: `${prefix} 【串口配置】写入串口参数${statusStr}`,
+      0x12: `${prefix} 【Modbus配置】写入8个Modbus预设${statusStr}`,
+      0x13: `${prefix} 【功率设置】写入SLE发射功率${statusStr}`,
+      0x14: `${prefix} 【添加白名单】添加子设备MAC到白名单${statusStr}`,
+      0x15: `${prefix} 【删除白名单】从白名单移除子设备MAC${statusStr}`,
+      0x16: `${prefix} 【清空白名单】清空所有白名单条目${statusStr}`,
+      0x17: `${prefix} 【子节点配置】写入白名单子节点的串口+Modbus配置${statusStr}`,
+      0x20: `${prefix} 【提交保存】将配置写入NV存储${statusStr}`,
+      0x21: `${prefix} 【重启设备】执行设备重启${statusStr}`,
+      0x22: `${prefix} 【恢复出厂】恢复出厂设置${statusStr}`,
+    };
+    return map[reqCmd] || `${prefix} 【命令 0x${reqCmd.toString(16).toUpperCase()}】${statusStr}`;
+  },
+
   getBaudRate(level) {
     return this.baudRateMap[level] || 9600;
   },
@@ -543,8 +593,9 @@ const DtuService = {
   writable: null,
 
   // 构造函数
-  constructor(sendLogFn = null) {
+  constructor(sendLogFn = null, onDetailedLog = null) {
     this.onLog = sendLogFn || console.log;
+    this.onDetailedLog = onDetailedLog || this.onLog;
     this.pendingRequests = new Map();
     this.receiveBuffer = new Uint8Array(0);
   },
@@ -644,7 +695,17 @@ const DtuService = {
     const writer = this.writable.getWriter();
     try {
       await writer.write(frame);
-      this.onLog('TX', DtuFrame.bytesToHex(frame), 'tx');
+      const cmd = frame[2];
+      const hexData = DtuFrame.bytesToHex(frame);
+      this.onLog('TX', hexData, 'tx');
+      // 详细日志
+      this.onDetailedLog({
+        direction: '发送',
+        frame: frame,
+        hexData: hexData,
+        cmdName: DtuProtocol.getCmdName(cmd),
+        description: DtuProtocol.getCmdDescription(cmd),
+      });
     } finally {
       writer.releaseLock();
     }
@@ -664,16 +725,30 @@ const DtuService = {
     // 处理解析结果
     for (const result of parseResult.results) {
       if (result.success) {
+        const cmd = result.frame?.[2] || 0;
+        const status = result.body && result.body.length > 0 ? result.body[0] : undefined;
+        const hexData = result.frame ? DtuFrame.bytesToHex(result.frame) : DtuFrame.bytesToHex(result.body);
+        const desc = DtuProtocol.getCmdDescription(cmd, status);
+        const hasError = status !== undefined && status !== 0;
         // 匹配已发起的请求
         const pending = this.pendingRequests.get(result.seq);
         if (pending) {
           pending.resolve(result);
           this.pendingRequests.delete(result.seq);
-          this.onLog('RX', DtuFrame.bytesToHex(result.body), 'success');
+          this.onLog('RX', hexData, hasError ? 'warning' : 'success');
         } else {
-          // 未匹配的响应
-          this.onLog('RX', DtuFrame.bytesToHex(result.body), 'info');
+          this.onLog('RX', hexData, 'info');
         }
+        // 详细日志
+        this.onDetailedLog({
+          direction: '接收',
+          frame: result.frame || null,
+          hexData: hexData,
+          cmdName: DtuProtocol.getCmdName(cmd),
+          description: desc,
+          error: hasError ? DtuProtocol.getStatusName(status) : null,
+          level: hasError ? 'warning' : 'success',
+        });
       } else {
         this.onLog('ERR', result.error, 'error');
       }
@@ -1065,32 +1140,28 @@ const DtuService = {
   async readAllConfig() {
     const results = [];
     
-    try {
-      // 读取设备信息
-      const deviceInfo = await this.readDeviceInfo();
-      results.push('✓ 设备信息已读取');
+    // 读取设备信息
+    const deviceInfo = await this.readDeviceInfo();
+    results.push('✓ 设备信息已读取');
+    
+    // 读取串口配置
+    const uartConfig = await this.readUartCfg();
+    results.push('✓ 串口配置已读取');
+    
+    // 读取Modbus配置
+    const modbusConfig = await this.readModbusCfg();
+    results.push('✓ Modbus配置已读取');
+    
+    // ROOT设备独有的功能
+    if (deviceInfo.role === DtuProtocol.ROLE_ROOT) {
+      const whiteList = await this.readWhiteList();
+      results.push('✓ 白名单已读取');
       
-      // 读取串口配置
-      const uartConfig = await this.readUartCfg();
-      results.push('✓ 串口配置已读取');
-      
-      // 读取Modbus配置
-      const modbusConfig = await this.readModbusCfg();
-      results.push('✓ Modbus配置已读取');
-      
-      // ROOT设备独有的功能
-      if (deviceInfo.role === DtuProtocol.ROLE_ROOT) {
-        const whiteList = await this.readWhiteList();
-        results.push('✓ 白名单已读取');
-        
-        const powerConfig = await this.readPower();
-        results.push('✓ 功率配置已读取');
-      }
-      
-      return results.join('\n');
-    } catch (err) {
-      return `配置读取失败: ${err.message}`;
+      const powerConfig = await this.readPower();
+      results.push('✓ 功率配置已读取');
     }
+    
+    return results.join('\n');
   },
 
   // 写入完整配置
@@ -1315,6 +1386,8 @@ function initApp() {
       // 设备模式和配置
       const deviceMode = ref('root'); // 'root' 或 'child'
       const devices = ref([]); // 白名单设备列表
+      const searchQuery = ref(''); // 设备搜索
+      const selectedIndices = ref(new Set()); // 多选索引集合
       
       // 设备类型选项（对齐 Flutter _deviceTypeOptions）
       const deviceTypeOptions = [
@@ -1346,6 +1419,7 @@ function initApp() {
       const modbusEditIndex = ref(0);
       const modbusEditType = ref(0);
       const modbusEditAddr = ref(1);
+      const modbusEditContext = ref('global'); // 'global' 主设置 | 'device' 子设备
       
       const deviceDialogVisible = ref(false);
       const editingDevice = ref({});
@@ -1414,6 +1488,23 @@ function initApp() {
         if (!customCommand.value) return '(空)';
         return customCommand.value.trim().split(/\s+/).map(p => p.toUpperCase()).join(' ');
       });
+
+      // 设备搜索 & 多选
+      const filteredDevices = computed(() => {
+        const q = searchQuery.value.trim().toLowerCase();
+        if (!q) return devices.value.map((d, i) => ({ ...d, _origIdx: i }));
+        return devices.value
+          .map((d, i) => ({ ...d, _origIdx: i }))
+          .filter(d => d.mac && d.mac.toLowerCase().includes(q));
+      });
+
+      const isAllFilteredSelected = computed(() => {
+        const fds = filteredDevices.value;
+        if (fds.length === 0) return false;
+        return fds.every(d => selectedIndices.value.has(d._origIdx));
+      });
+
+      const selectedCount = computed(() => selectedIndices.value.size);
       
       // Methods
       const goTo = (page) => {
@@ -1427,14 +1518,57 @@ function initApp() {
         currentPage.value = page;
       };
       
+      // 日志辅助 — 毫秒时间戳
+      const formatLogTime = () => {
+        const d = new Date();
+        return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}.${String(d.getMilliseconds()).padStart(3,'0')}`;
+      };
+      
+      // 帧拆解信息
+      const getFrameInfo = (frame) => {
+        if (!frame || frame.length < 7) return '';
+        const cmd = frame[2];
+        const seq = frame[3];
+        const len = frame[4] | (frame[5] << 8);
+        const body = len > 0 ? frame.slice(6, 6 + len) : [];
+        const bodyHex = body.length > 0 ? DtuFrame.bytesToHex(new Uint8Array(body)) : '';
+        const cmdName = DtuProtocol.getCmdName(cmd);
+        return `CMD=${cmdName} | SEQ=${seq} | LEN=${len}${bodyHex ? ' | BODY=' + bodyHex : ''}`;
+      };
+
+      // 从 body 提取状态码（响应帧 body[0]）
+      const getStatusFromBody = (bodyArray) => {
+        if (!bodyArray || bodyArray.length === 0) return undefined;
+        return bodyArray[0];
+      };
+
       const addLog = (type, data, level = 'info') => {
-        const time = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+        const time = formatLogTime();
         logs.value.push({ time, type, data, level });
+        // 限制 500 条
+        while (logs.value.length > 500) logs.value.shift();
         nextTick(() => {
           if (autoScroll.value) {
-            document.querySelectorAll('.terminal').forEach(el => {
-              el.scrollTop = el.scrollHeight;
-            });
+            const el = document.querySelector('.terminal');
+            if (el) el.scrollTop = el.scrollHeight;
+          }
+        });
+      };
+
+      // 详细协议日志 — 对标 Flutter DebugPanel
+      const addDetailedLog = ({ direction, frame, hexData, cmdName, description, error, level }) => {
+        const time = formatLogTime();
+        const frameInfo = frame ? getFrameInfo(frame) : '';
+        logs.value.push({
+          time, direction, hexData, cmdName, description, frameInfo, error,
+          level: level || (error ? 'error' : direction === '发送' ? 'tx' : direction === '接收' ? 'rx' : 'info'),
+          isDetailed: true
+        });
+        while (logs.value.length > 500) logs.value.shift();
+        nextTick(() => {
+          if (autoScroll.value) {
+            const el = document.querySelector('.terminal');
+            if (el) el.scrollTop = el.scrollHeight;
           }
         });
       };
@@ -1621,15 +1755,10 @@ function initApp() {
         
         // 读取所有配置
         async readAllConfig() {
-          try {
-            Message.info('正在读取完整配置...');
-            const result = await dtuService.readAllConfig();
-            Message.success('完整配置读取完成');
-            return result;
-          } catch (err) {
-            Message.error('读取配置失败: ' + err.message);
-            return '配置读取失败: ' + err.message;
-          }
+          Message.info('正在读取完整配置...');
+          const result = await dtuService.readAllConfig();
+          Message.success('完整配置读取完成');
+          return result;
         },
         
         // 写入配置操作
@@ -1643,7 +1772,7 @@ function initApp() {
             return true;
           } catch (err) {
             Message.error('设置角色失败: ' + err.message);
-            return false;
+            throw err;
           }
         },
         
@@ -1661,7 +1790,7 @@ function initApp() {
             return true;
           } catch (err) {
             Message.error('设置串口配置失败: ' + err.message);
-            return false;
+            throw err;
           }
         },
         
@@ -1681,7 +1810,7 @@ function initApp() {
             return true;
           } catch (err) {
             Message.error('设置Modbus配置失败: ' + err.message);
-            return false;
+            throw err;
           }
         },
         
@@ -1693,7 +1822,7 @@ function initApp() {
             return true;
           } catch (err) {
             Message.error('设置功率失败: ' + err.message);
-            return false;
+            throw err;
           }
         },
         
@@ -1715,7 +1844,7 @@ function initApp() {
             return true;
           } catch (err) {
             Message.error('添加白名单失败: ' + err.message);
-            return false;
+            throw err;
           }
         },
         
@@ -1727,7 +1856,7 @@ function initApp() {
             return true;
           } catch (err) {
             Message.error('删除白名单失败: ' + err.message);
-            return false;
+            throw err;
           }
         },
 
@@ -1751,7 +1880,7 @@ function initApp() {
             return true;
           } catch (err) {
             Message.error('设置子节点配置失败: ' + err.message);
-            return false;
+            throw err;
           }
         },
 
@@ -1772,7 +1901,7 @@ function initApp() {
             return true;
           } catch (err) {
             Message.error('添加白名单失败: ' + err.message);
-            return false;
+            throw err;
           }
         },
         
@@ -1784,7 +1913,7 @@ function initApp() {
             return true;
           } catch (err) {
             Message.error('保存配置失败: ' + err.message);
-            return false;
+            throw err;
           }
         },
         
@@ -1796,7 +1925,7 @@ function initApp() {
             return true;
           } catch (err) {
             Message.error('重启设备失败: ' + err.message);
-            return false;
+            throw err;
           }
         },
         
@@ -1808,7 +1937,7 @@ function initApp() {
             return true;
           } catch (err) {
             Message.error('恢复出厂设置失败: ' + err.message);
-            return false;
+            throw err;
           }
         }
       };
@@ -1838,7 +1967,7 @@ function initApp() {
         editingIndex.value = -1;
         editingDevice.value = {
           mac: '',
-          modbusAddr: 1,
+          modbusPresets: Array.from({ length: 8 }, (_, i) => ({ addr: i + 1, devType: 0x05 })),
           baudRate: 115200,
           dataBits: 8,
           stopBits: 1,
@@ -1847,22 +1976,59 @@ function initApp() {
         };
         // 添加设备时，串口参数默认展开
         serialParamsExpanded.value = true;
+        closeAllSelects();
         deviceDialogVisible.value = true;
       };
       
-      const editDevice = (index) => {
+      const editDevice = async (index) => {
         editingIndex.value = index;
         editingDevice.value = { ...devices.value[index] };
         
-        // 确保编辑设备时有完整的串口参数默认值
+        // 确保编辑设备时有完整的默认值
         if (!editingDevice.value.baudRate) editingDevice.value.baudRate = 115200;
         if (!editingDevice.value.dataBits) editingDevice.value.dataBits = 8;
         if (!editingDevice.value.stopBits) editingDevice.value.stopBits = 1;
         if (!editingDevice.value.parity) editingDevice.value.parity = 'none';
+        if (!editingDevice.value.modbusPresets || !Array.isArray(editingDevice.value.modbusPresets)) {
+          editingDevice.value.modbusPresets = Array.from({ length: 8 }, (_, i) => ({ addr: i + 1, devType: 0x05 }));
+        }
+        while (editingDevice.value.modbusPresets.length < 8) {
+          editingDevice.value.modbusPresets.push({ addr: editingDevice.value.modbusPresets.length + 1, devType: 0x05 });
+        }
         
         // 编辑设备时也自动展开串口参数
         serialParamsExpanded.value = true;
+        closeAllSelects();
         deviceDialogVisible.value = true;
+
+        // 如果已连接且有 MAC，从设备读取子节点真实配置
+        if (serialConnected.value && editingDevice.value.mac) {
+          try {
+            const cfg = await dtuOperations.readChildNodeConfig(editingDevice.value.mac);
+            if (cfg) {
+              // 用设备返回的真实串口参数填充
+              editingDevice.value.baudRate = DtuProtocol.getBaudRate(cfg.baudLevel);
+              editingDevice.value.dataBits = cfg.dataBits;
+              editingDevice.value.stopBits = cfg.stopBits;
+              editingDevice.value.parity = DtuProtocol.getParityName(cfg.parity).toLowerCase();
+              // 用设备返回的真实 Modbus 预设填充
+              editingDevice.value.modbusPresets = cfg.modbusItems.length > 0 
+                ? cfg.modbusItems 
+                : Array.from({ length: 8 }, (_, i) => ({ addr: i + 1, devType: 0x05 }));
+              // 补齐到 8 个
+              while (editingDevice.value.modbusPresets.length < 8) {
+                editingDevice.value.modbusPresets.push({ 
+                  addr: editingDevice.value.modbusPresets.length + 1, 
+                  devType: 0x05 
+                });
+              }
+              Message.success('已从设备读取子节点配置');
+            }
+          } catch (err) {
+            // 读取失败则使用本地数据，不阻塞 UI
+            console.warn('读取子节点配置失败，使用本地数据:', err.message);
+          }
+        }
       };
       
       const saveDevice = async () => {
@@ -1875,7 +2041,6 @@ function initApp() {
           const mac = editingDevice.value.mac.toUpperCase();
           
           if (editingIndex.value >= 0) {
-            // 编辑设备 - 需要先删除旧MAC，再添加新MAC
             const oldMac = devices.value[editingIndex.value].mac;
             if (oldMac !== mac) {
               await dtuOperations.deleteWhiteListItem(oldMac);
@@ -1883,7 +2048,6 @@ function initApp() {
             }
             devices.value[editingIndex.value] = { ...editingDevice.value, mac };
           } else {
-            // 新建设备 - 添加到DTU白名单
             await dtuOperations.addWhiteListItem(mac);
             devices.value.push({ ...editingDevice.value, mac });
           }
@@ -1952,6 +2116,48 @@ function initApp() {
           serialParamsExpanded.value = false;
         }, 100);
       };
+
+      // 多选功能
+      const toggleSelect = (origIdx) => {
+        const s = new Set(selectedIndices.value);
+        if (s.has(origIdx)) s.delete(origIdx); else s.add(origIdx);
+        selectedIndices.value = s;
+      };
+
+      const toggleSelectAll = () => {
+        if (isAllFilteredSelected.value) {
+          // 取消当前筛选结果的全部选中
+          const s = new Set(selectedIndices.value);
+          filteredDevices.value.forEach(d => s.delete(d._origIdx));
+          selectedIndices.value = s;
+        } else {
+          const s = new Set(selectedIndices.value);
+          filteredDevices.value.forEach(d => s.add(d._origIdx));
+          selectedIndices.value = s;
+        }
+      };
+
+      const clearSelection = () => { selectedIndices.value = new Set(); };
+
+      const batchDelete = async () => {
+        const indices = Array.from(selectedIndices.value).sort((a, b) => b - a); // 倒序，从后删
+        if (indices.length === 0) { Message.warning('请先选择要删除的设备'); return; }
+        const confirmed = confirm(`确定要删除选中的 ${indices.length} 个设备吗？`);
+        if (!confirmed) return;
+        try {
+          for (const idx of indices) {
+            const device = devices.value[idx];
+            if (device.mac && deviceMode.value === 'root') {
+              await dtuOperations.deleteWhiteListItem(device.mac);
+            }
+            devices.value.splice(idx, 1);
+          }
+          selectedIndices.value = new Set();
+          Message.success(`已删除 ${indices.length} 个设备`);
+        } catch (err) {
+          Message.error('批量删除失败: ' + err.message);
+        }
+      };
       
       const refreshDevices = async () => {
         if (deviceMode.value !== 'root') {
@@ -1963,27 +2169,84 @@ function initApp() {
       };
       
       // Modbus预设编辑
-      const showModbusEditor = (index) => {
+      const showModbusEditor = (index, context = 'global') => {
+        modbusEditContext.value = context;
         modbusEditIndex.value = index;
-        modbusEditAddr.value = modbusAddresses.value[index];
-        // 找到 devType 在 deviceTypeOptions 中的索引
-        const devType = modbusDeviceTypes.value[index];
-        const optIdx = deviceTypeOptions.findIndex(t => t.value === devType);
-        modbusEditType.value = optIdx >= 0 ? optIdx : 0;
+        if (context === 'device') {
+          const preset = editingDevice.value.modbusPresets[index];
+          modbusEditAddr.value = preset.addr;
+          const optIdx = deviceTypeOptions.findIndex(t => t.value === preset.devType);
+          modbusEditType.value = optIdx >= 0 ? optIdx : 0;
+        } else {
+          modbusEditAddr.value = modbusAddresses.value[index];
+          const devType = modbusDeviceTypes.value[index];
+          const optIdx = deviceTypeOptions.findIndex(t => t.value === devType);
+          modbusEditType.value = optIdx >= 0 ? optIdx : 0;
+        }
+        closeAllSelects();
         modbusDialogVisible.value = true;
       };
       
-      const saveModbusPreset = () => {
-        modbusAddresses.value[modbusEditIndex.value] = modbusEditAddr.value;
-        modbusDeviceTypes.value[modbusEditIndex.value] = deviceTypeOptions[modbusEditType.value].value;
-        modbusDialogVisible.value = false;
-        Message.success('Modbus预设已保存');
+      const saveModbusPreset = async () => {
+        try {
+          if (modbusEditContext.value === 'device') {
+            // 子设备 Modbus 预设：更新本地 + SET_WL_NODE_CFG (0x17) + COMMIT (0x20)
+            editingDevice.value.modbusPresets[modbusEditIndex.value] = {
+              addr: modbusEditAddr.value,
+              devType: deviceTypeOptions[modbusEditType.value].value
+            };
+            if (serialConnected.value && editingDevice.value.mac) {
+              const device = editingDevice.value;
+              const config = {
+                mac: device.mac,
+                baudLevel: getBaudRateLevel(device.baudRate),
+                parity: getParityValue(device.parity),
+                stopBits: parseInt(device.stopBits),
+                dataBits: parseInt(device.dataBits),
+                modbusItems: device.modbusPresets.map(p => ({
+                  addr: p.addr,
+                  devType: p.devType || 0x05
+                }))
+              };
+              await dtuOperations.setChildNodeConfig(config);
+              await dtuOperations.commitConfig();
+            }
+          } else {
+            // 全局 Modbus 预设 → SET_MODBUS_CFG (0x12) + COMMIT (0x20)
+            modbusAddresses.value[modbusEditIndex.value] = modbusEditAddr.value;
+            modbusDeviceTypes.value[modbusEditIndex.value] = deviceTypeOptions[modbusEditType.value].value;
+            if (serialConnected.value) {
+              await dtuOperations.setModbusConfig();
+              await dtuOperations.commitConfig();
+            }
+          }
+          modbusDialogVisible.value = false;
+          let msg = 'Modbus预设已保存';
+          if (serialConnected.value) {
+            msg += modbusEditContext.value === 'device' ? '并写入子设备' : '并写入设备';
+          } else {
+            msg += '（本地）';
+          }
+          Message.success(msg);
+        } catch (err) {
+          Message.error('保存Modbus预设失败: ' + err.message);
+        }
       };
       
-      const resetModbusAddresses = () => {
+      const resetModbusAddresses = async () => {
         modbusAddresses.value = [1, 2, 3, 4, 5, 6, 7, 8];
-        modbusDeviceTypes.value = [0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05]; // 默认: 5=其他预留
-        Message.success('Modbus地址已重置');
+        modbusDeviceTypes.value = [0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05];
+        if (serialConnected.value) {
+          try {
+            await dtuOperations.setModbusConfig();
+            await dtuOperations.commitConfig();
+            Message.success('Modbus地址已重置并写入设备');
+          } catch (err) {
+            Message.error('写入失败: ' + err.message);
+          }
+        } else {
+          Message.success('Modbus地址已重置（本地）');
+        }
       };
       
       // 功率描述
@@ -2072,7 +2335,6 @@ function initApp() {
           return result;
         } catch (err) {
           Message.error('读取配置失败: ' + err.message);
-          return '读取配置失败: ' + err.message;
         }
       };
       
@@ -2188,6 +2450,25 @@ function initApp() {
       const getDeviceTypeLabel = (devType) => {
         return deviceTypeMap[devType] || '其他预留';
       };
+
+      // 关闭所有下拉框（modal 打开前调用，防止 select 浮在 modal 之上）
+      const closeAllSelects = () => {
+        document.querySelectorAll('.select-dropdown').forEach(el => {
+          el.style.display = 'none';
+          if (el.classList.contains('fixed-position')) {
+            el.classList.remove('fixed-position');
+            el.style.position = '';
+            el.style.top = '';
+            el.style.left = '';
+            el.style.width = '';
+            const originalParent = document.querySelector(`[data-dropdown-id="${el.id}"]`);
+            if (originalParent && originalParent !== el.parentElement) {
+              originalParent.appendChild(el);
+            }
+          }
+        });
+        document.body.classList.remove('dropdown-open');
+      };
       
       onMounted(() => {
         addLog('SYS', 'DTU 配置助手 Web Serial 版本已启动');
@@ -2195,7 +2476,7 @@ function initApp() {
         
         // 创建DTU服务实例
         dtuService = Object.create(DtuService);
-        dtuService.constructor(addLog);
+        dtuService.constructor(addLog, addDetailedLog);
         
         document.addEventListener('click', (e) => {
           if (!e.target.closest('.select')) {
@@ -2245,10 +2526,20 @@ function initApp() {
         deviceDialogVisible,
         editingDevice,
         serialParamsExpanded,
+        searchQuery,
+        selectedIndices,
+        filteredDevices,
+        isAllFilteredSelected,
+        selectedCount,
+        toggleSelect,
+        toggleSelectAll,
+        clearSelection,
+        batchDelete,
         modbusDialogVisible,
         modbusEditIndex,
         modbusEditType,
         modbusEditAddr,
+        modbusEditContext,
         deviceConfig,
         
         connectionClass,

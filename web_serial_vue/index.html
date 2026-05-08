@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DTU 配置助手</title>
+  <title>DTU 配置助手2</title>
   <!-- Neumorphism 新拟态风格 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -61,7 +61,7 @@
           <div class="compact-mode-buttons">
             <button class="compact-mode-btn root" :class="{ active: deviceMode === 'root' }" @click="deviceMode = 'root'">
               <svg width="13" height="13" aria-hidden="true"><use href="#ic-hub"/></svg>
-              根节点
+              根节点2
             </button>
             <button class="compact-mode-btn child" :class="{ active: deviceMode === 'child' }" @click="deviceMode = 'child'">
               <svg width="13" height="13" aria-hidden="true"><use href="#ic-node"/></svg>
@@ -197,7 +197,7 @@
                   </div>
                 </div>
                 <div class="param-action">
-                  <button class="btn btn-primary" :disabled="!serialConnected" @click="applySerialParams">应用参数</button>
+                  <button class="btn btn-primary" :disabled="!serialConnected || scanning" @click="applySerialParams">应用参数</button>
                 </div>
               </div>
             </div>

@@ -617,15 +617,37 @@ const DtuService = {
         baudRate: serialParams.baudRate,
         dataBits: serialParams.dataBits,
         stopBits: serialParams.stopBits,
-        parity: serialParams.parity
+        parity: serialParams.parity,
+        flowControl: 'none',      // 关闭硬件流控，否则 RTS/CTS 引脚悬空会阻塞数据
       });
 
-      this.isConnected = true;
-      this.onLog('USB', `连接成功 - ${serialParams.baudRate}bps`, 'success');
+      // 关键：关闭 DTR/RTS 信号，防止设备进入下载/复位模式
+      if (this.port.setSignals) {
+        try {
+          await this.port.setSignals({ dataTerminalReady: false, requestToSend: false });
+        } catch (_) {}
+      }
+
+      this.isConnected = true;  // 先标记为已连接，这样才能发握手帧
+      this.onLog('USB', `端口已打开 - ${serialParams.baudRate}bps`, 'info');
       
       // 启动数据接收
       this._startReading();
-      return true;
+
+      // 握手验证：发一条读设备信息，只有收到回复才算真正连接成功
+      try {
+        this.onLog('SYS', '正在验证 DTU 连接...');
+        await this.readDeviceInfo();
+        this.onLog('USB', 'DTU 握手成功，设备在线', 'success');
+        return true;
+      } catch (e) {
+        this.isConnected = false;  // 握手失败，回退
+        this.onLog('ERR', `握手失败: ${e.message || e}`, 'error');
+        this.onLog('ERR', '请检查：1.DTU是否进入CONFIG模式(GPIO13=高电平重新上电) 2.波特率是否正确 3.接线是否正常', 'warning');
+        // 端口已开但设备无响应，关闭连接
+        await this.disconnect();
+        return false;
+      }
     } catch (err) {
       this.onLog('ERR', `连接失败: ${err.message}`, 'error');
       this.isConnected = false;
@@ -636,15 +658,16 @@ const DtuService = {
   // 断开连接
   async disconnect() {
     try {
-      if (this.reader) {
-        await this.reader.cancel();
-        this.reader = null;
-      }
+      this.isConnected = false;
+      // 先关闭端口（会自动取消所有 reader）
       if (this.port) {
-        await this.port.close();
+        try { await this.port.close(); } catch (_) {}
         this.port = null;
       }
-      this.isConnected = false;
+      // 清理 reader 引用
+      if (this.reader) {
+        this.reader = null;
+      }
       this.onLog('USB', '已断开连接');
     } catch (err) {
       this.onLog('ERR', `断开失败: ${err.message}`, 'error');
@@ -762,24 +785,29 @@ const DtuService = {
   async _startReading() {
     if (!this.port || !this.port.readable) return;
 
-    while (this.port && this.port.readable) {
-      this.reader = this.port.readable.getReader();
-      try {
-        while (true) {
-          const { value, done } = await this.reader.read();
-          if (done) break;
-          if (value) {
-            this._onDataReceived(value);
+    try {
+      while (this.isConnected && this.port && this.port.readable) {
+        try {
+          this.reader = this.port.readable.getReader();
+          while (this.isConnected) {
+            const { value, done } = await this.reader.read();
+            if (done) break;
+            if (value) {
+              this._onDataReceived(value);
+            }
           }
+        } catch (err) {
+          if (err.name !== 'AbortError' && err.name !== 'NetworkError') {
+            this.onLog('ERR', `读取错误: ${err.message}`, 'error');
+          }
+        } finally {
+          try { this.reader?.releaseLock(); } catch (_) {}
+          this.reader = null;
         }
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          this.onLog('ERR', `读取错误: ${err.message}`, 'error');
-        }
-      } finally {
-        this.reader.releaseLock();
+        // 短暂延迟，避免紧循环
+        if (!this.isConnected) break;
       }
-    }
+    } catch (_) {}
   },
 
   // ========== 读取操作 ==========
@@ -1616,6 +1644,7 @@ function initApp() {
       
       const applySerialParams = async () => {
         if (serialConnected.value) {
+          scanning.value = true;
           try {
             // 断开并重新使用新参数连接
             await disconnectSerial();
@@ -1623,6 +1652,8 @@ function initApp() {
             await connectSerial();
           } catch (err) {
             Message.error('串口参数更新失败');
+          } finally {
+            scanning.value = false;
           }
         } else {
           Message.success('串口参数已更新');

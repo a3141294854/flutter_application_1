@@ -59,11 +59,11 @@
             <span class="mode-title-text">角色选择</span>
           </div>
           <div class="compact-mode-buttons">
-            <button class="compact-mode-btn root" :class="{ active: deviceMode === 'root' }" @click="deviceMode = 'root'">
+            <button class="compact-mode-btn root" :class="{ active: deviceMode === 'root' }" @click="switchDeviceMode('root')">
               <svg width="13" height="13" aria-hidden="true"><use href="#ic-hub"/></svg>
-              根节点2
+              根节点
             </button>
-            <button class="compact-mode-btn child" :class="{ active: deviceMode === 'child' }" @click="deviceMode = 'child'">
+            <button class="compact-mode-btn child" :class="{ active: deviceMode === 'child' }" @click="switchDeviceMode('child')">
               <svg width="13" height="13" aria-hidden="true"><use href="#ic-node"/></svg>
               子节点
             </button>
@@ -541,6 +541,6 @@
 </div>
 
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<script src="js/app.js"></script>
+<script src="js/app.js?v=5"></script>
 </body>
 </html>

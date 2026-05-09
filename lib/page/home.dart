@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../protocol/protocol.dart';
+import '../theme/app_theme.dart';
 import 'device_list_page.dart';
 import 'settings_page.dart';
 import 'child_settings_page.dart';
@@ -64,7 +65,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F7FF),
+      backgroundColor: NeuTheme.bg,
       body: SafeArea(
         child: Column(
           children: [
@@ -72,26 +73,20 @@ class _HomePageState extends State<HomePage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF4A90D9).withValues(alpha: 0.08),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                color: NeuTheme.card,
+                boxShadow: NeuTheme.shadowRaisedSm,
               ),
               child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE8F5E9),
-                      borderRadius: BorderRadius.circular(8),
+                      color: NeuTheme.successBg,
+                      borderRadius: BorderRadius.circular(NeuTheme.radiusSm),
                     ),
                     child: const Icon(
                       Icons.bluetooth_connected,
-                      color: Color(0xFF4CAF50),
+                      color: NeuTheme.success,
                       size: 20,
                     ),
                   ),
@@ -107,7 +102,7 @@ class _HomePageState extends State<HomePage> {
                               '已连接',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF4CAF50),
+                                color: NeuTheme.success,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -116,9 +111,9 @@ class _HomePageState extends State<HomePage> {
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
                                 color: _nodeType == NodeType.root
-                                    ? const Color(0xFF4CAF50)
-                                    : const Color(0xFFFF9800),
-                                borderRadius: BorderRadius.circular(10),
+                                    ? NeuTheme.accent
+                                    : NeuTheme.warning,
+                                borderRadius: BorderRadius.circular(NeuTheme.radiusFull),
                               ),
                               child: GestureDetector(
                                 onTap: widget.dtuService.isConnected ? _showRoleSwitchDialog : null,
@@ -156,7 +151,7 @@ class _HomePageState extends State<HomePage> {
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF2D4A6F),
+                            color: NeuTheme.textPrimary,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -165,7 +160,7 @@ class _HomePageState extends State<HomePage> {
                           _deviceMac,
                           style: const TextStyle(
                             fontSize: 11,
-                            color: Color(0xFFA0BCD6),
+                            color: NeuTheme.textMuted,
                           ),
                         ),
                       ],
@@ -175,7 +170,7 @@ class _HomePageState extends State<HomePage> {
                     onPressed: () => _showDisconnectDialog(context),
                     icon: const Icon(
                       Icons.link_off,
-                      color: Color(0xFF7A9CC6),
+                      color: NeuTheme.textMuted,
                     ),
                     tooltip: '断开连接',
                   ),
@@ -188,7 +183,7 @@ class _HomePageState extends State<HomePage> {
                     },
                     icon: const Icon(
                       Icons.bug_report,
-                      color: Color(0xFF4A90D9),
+                      color: NeuTheme.accent,
                     ),
                     tooltip: '调试面板',
                   ),
@@ -219,13 +214,10 @@ class _HomePageState extends State<HomePage> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF4A90D9).withValues(alpha: 0.08),
-              blurRadius: 8,
-              offset: const Offset(0, -2),
-            ),
+          color: NeuTheme.card,
+          boxShadow: const [
+            BoxShadow(color: NeuTheme.shadowDark, offset: Offset(0, -4), blurRadius: 8),
+            BoxShadow(color: NeuTheme.shadowLight, offset: Offset(0, -4), blurRadius: 8),
           ],
         ),
         child: SafeArea(
@@ -261,14 +253,14 @@ class _HomePageState extends State<HomePage> {
         children: [
           Icon(
             icon,
-            color: isSelected ? const Color(0xFF4A90D9) : const Color(0xFF7A9CC6),
+            color: isSelected ? NeuTheme.accent : NeuTheme.textMuted,
             size: 24,
           ),
           const SizedBox(height: 4),
           Text(
             text,
             style: TextStyle(
-              color: isSelected ? const Color(0xFF4A90D9) : const Color(0xFF7A9CC6),
+              color: isSelected ? NeuTheme.accent : NeuTheme.textMuted,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               fontSize: 12,
             ),
@@ -282,13 +274,13 @@ class _HomePageState extends State<HomePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFF0F7FF),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: NeuTheme.bg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(NeuTheme.radiusMd)),
         title: const Row(
           children: [
-            Icon(Icons.swap_horiz, color: Color(0xFF4A90D9), size: 24),
+            Icon(Icons.swap_horiz, color: NeuTheme.accent, size: 24),
             SizedBox(width: 8),
-            Text('切换角色', style: TextStyle(color: Color(0xFF2D4A6F), fontSize: 18)),
+            Text('切换角色', style: TextStyle(color: NeuTheme.textPrimary, fontSize: 18)),
           ],
         ),
         content: Column(
@@ -296,14 +288,14 @@ class _HomePageState extends State<HomePage> {
           children: [
             const Text(
               '选择设备角色：',
-              style: TextStyle(color: Color(0xFF2D4A6F), fontSize: 14),
+              style: TextStyle(color: NeuTheme.textPrimary, fontSize: 14),
             ),
             const SizedBox(height: 16),
             _RoleOption(
               title: 'ROOT (根节点)',
               subtitle: '可连接多个子节点',
               icon: Icons.hub,
-              color: const Color(0xFF4CAF50),
+              color: NeuTheme.accent,
               isSelected: _nodeType == NodeType.root,
               onTap: () => _switchRole(NodeType.root),
             ),
@@ -312,7 +304,7 @@ class _HomePageState extends State<HomePage> {
               title: 'NODE (子节点)',
               subtitle: '连接一个根节点',
               icon: Icons.device_hub,
-              color: const Color(0xFFFF9800),
+              color: NeuTheme.warning,
               isSelected: _nodeType == NodeType.child,
               onTap: () => _switchRole(NodeType.child),
             ),
@@ -348,17 +340,13 @@ class _HomePageState extends State<HomePage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => const AlertDialog(
-        backgroundColor: Color(0xFFF0F7FF),
-        content: Row(
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: NeuTheme.bg,
+        content: const Row(
           children: [
-            SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
+            SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: NeuTheme.accent)),
             SizedBox(width: 16),
-            Text('正在切换角色...'),
+            Text('正在切换角色...', style: TextStyle(color: NeuTheme.textPrimary)),
           ],
         ),
       ),
@@ -385,7 +373,7 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('角色已切换为 $targetRoleName'),
-            backgroundColor: Colors.green,
+            backgroundColor: NeuTheme.success,
             duration: const Duration(seconds: 2),
           ),
         );
@@ -398,7 +386,7 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('切换失败: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: NeuTheme.error,
           ),
         );
       }
@@ -423,7 +411,7 @@ class _HomePageState extends State<HomePage> {
             },
             child: const Text(
               '断开',
-              style: TextStyle(color: Colors.red),
+              style: TextStyle(color: NeuTheme.error),
             ),
           ),
         ],
@@ -456,12 +444,10 @@ class _RoleOption extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.1) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? color : const Color(0xFFE8F2FF),
-            width: isSelected ? 2 : 1,
-          ),
+          color: isSelected ? color.withValues(alpha: 0.12) : NeuTheme.card,
+          borderRadius: BorderRadius.circular(NeuTheme.radiusMd),
+          boxShadow: isSelected ? [] : NeuTheme.shadowRaisedSm,
+          border: Border.all(color: isSelected ? color : NeuTheme.card, width: isSelected ? 2 : 0),
         ),
         child: Row(
           children: [
@@ -483,7 +469,7 @@ class _RoleOption extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: isSelected ? color : const Color(0xFF2D4A6F),
+                      color: isSelected ? color : NeuTheme.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -491,7 +477,7 @@ class _RoleOption extends StatelessWidget {
                     subtitle,
                     style: const TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF7A9CC6),
+                      color: NeuTheme.textSecondary,
                     ),
                   ),
                 ],

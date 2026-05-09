@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../protocol/ble_service.dart';
+import '../theme/app_theme.dart';
 
 /// 调试面板页面
 class DebugPanelPage extends StatefulWidget {
@@ -71,7 +72,7 @@ class _DebugPanelPageState extends State<DebugPanelPage> {
         ),
         title: const Row(
           children: [
-            Icon(Icons.bug_report, color: Color(0xFF4A90D9), size: 20),
+            Icon(Icons.bug_report, color: NeuTheme.accent, size: 20),
             SizedBox(width: 8),
             Text(
               '调试面板',
@@ -93,7 +94,7 @@ class _DebugPanelPageState extends State<DebugPanelPage> {
           IconButton(
             icon: Icon(
               _autoScroll ? Icons.vertical_align_bottom : Icons.vertical_align_center,
-              color: _autoScroll ? const Color(0xFF4A90D9) : Colors.white70,
+              color: _autoScroll ? NeuTheme.accent : Colors.white70,
             ),
             onPressed: () => setState(() => _autoScroll = !_autoScroll),
             tooltip: _autoScroll ? '自动滚动: 开' : '自动滚动: 关',
@@ -109,13 +110,13 @@ class _DebugPanelPageState extends State<DebugPanelPage> {
             color: const Color(0xFF16213E),
             child: Row(
               children: [
-                _buildStatChip('总日志', _displayLogs.length.toString(), const Color(0xFF4A90D9)),
+                _buildStatChip('总日志', _displayLogs.length.toString(), NeuTheme.accent),
                 const SizedBox(width: 12),
-                _buildStatChip('发送', _displayLogs.where((l) => l.direction == '发送').length.toString(), Colors.green),
+                _buildStatChip('发送', _displayLogs.where((l) => l.direction == '发送').length.toString(), NeuTheme.success),
                 const SizedBox(width: 12),
-                _buildStatChip('接收', _displayLogs.where((l) => l.direction == '接收').length.toString(), Colors.orange),
+                _buildStatChip('接收', _displayLogs.where((l) => l.direction == '接收').length.toString(), NeuTheme.warning),
                 const SizedBox(width: 12),
-                _buildStatChip('错误', _displayLogs.where((l) => l.error != null).length.toString(), Colors.red),
+                _buildStatChip('错误', _displayLogs.where((l) => l.error != null).length.toString(), NeuTheme.error),
               ],
             ),
           ),
@@ -181,7 +182,7 @@ class _DebugPanelPageState extends State<DebugPanelPage> {
 
   Widget _buildLogItem(DebugLogEntry entry) {
     final isSend = entry.direction == '发送';
-    final color = isSend ? Colors.green : (entry.error != null ? Colors.red : Colors.orange);
+    final color = isSend ? NeuTheme.success : (entry.error != null ? NeuTheme.error : NeuTheme.warning);
     final bgColor = color.withValues(alpha: 0.1);
 
     return Container(
@@ -240,7 +241,7 @@ class _DebugPanelPageState extends State<DebugPanelPage> {
                 children: [
                   Icon(
                     entry.error != null ? Icons.error_outline : Icons.info_outline,
-                    color: entry.error != null ? Colors.red : Colors.cyan,
+                    color: entry.error != null ? NeuTheme.error : Colors.cyan,
                     size: 14,
                   ),
                   const SizedBox(width: 6),
@@ -248,7 +249,7 @@ class _DebugPanelPageState extends State<DebugPanelPage> {
                     child: Text(
                       entry.description!,
                       style: TextStyle(
-                        color: entry.error != null ? Colors.red.shade300 : Colors.cyan.shade300,
+                        color: entry.error != null ? NeuTheme.error : Colors.cyan.shade300,
                         fontSize: 11,
                       ),
                     ),
@@ -288,7 +289,7 @@ class _DebugPanelPageState extends State<DebugPanelPage> {
             const SizedBox(height: 4),
             Text(
               entry.error!,
-              style: const TextStyle(color: Colors.red, fontSize: 11),
+              style: const TextStyle(color: NeuTheme.error, fontSize: 11),
             ),
           ],
         ],

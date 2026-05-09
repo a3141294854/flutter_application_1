@@ -628,26 +628,12 @@ const DtuService = {
         } catch (_) {}
       }
 
-      this.isConnected = true;  // 先标记为已连接，这样才能发握手帧
+      this.isConnected = true;
       this.onLog('USB', `端口已打开 - ${serialParams.baudRate}bps`, 'info');
       
       // 启动数据接收
       this._startReading();
-
-      // 握手验证：发一条读设备信息，只有收到回复才算真正连接成功
-      try {
-        this.onLog('SYS', '正在验证 DTU 连接...');
-        await this.readDeviceInfo();
-        this.onLog('USB', 'DTU 握手成功，设备在线', 'success');
-        return true;
-      } catch (e) {
-        this.isConnected = false;  // 握手失败，回退
-        this.onLog('ERR', `握手失败: ${e.message || e}`, 'error');
-        this.onLog('ERR', '请检查：1.DTU是否进入CONFIG模式(GPIO13=高电平重新上电) 2.波特率是否正确 3.接线是否正常', 'warning');
-        // 端口已开但设备无响应，关闭连接
-        await this.disconnect();
-        return false;
-      }
+      return true;
     } catch (err) {
       this.onLog('ERR', `连接失败: ${err.message}`, 'error');
       this.isConnected = false;
@@ -1618,6 +1604,13 @@ function initApp() {
           const success = await dtuService.connect(serialParams.value);
           if (success) {
             serialConnected.value = true;
+            // 连接后自动读取设备信息，确定角色
+            addLog('SYS', '正在导入设备配置...');
+            const info = await dtuOperations.readDeviceInfo();
+            if (info) {
+              deviceMode.value = info.role === 1 ? 'root' : 'child';
+              addLog('DEV', `设备角色: ${deviceMode.value === 'root' ? 'ROOT根节点' : 'NODE子节点'}`, 'info');
+            }
           } else {
             serialConnected.value = false;
           }
@@ -1646,17 +1639,22 @@ function initApp() {
         if (serialConnected.value) {
           scanning.value = true;
           try {
-            // 断开并重新使用新参数连接
-            await disconnectSerial();
-            await new Promise(r => setTimeout(r, 100));
-            await connectSerial();
+            const uartCfg = {
+              baudLevel: getBaudRateLevel(serialParams.value.baudRate),
+              parity: getParityValue(serialParams.value.parity),
+              stopBits: parseInt(serialParams.value.stopBits),
+              dataBits: parseInt(serialParams.value.dataBits)
+            };
+            await dtuOperations.setUartConfig();
+            addLog('SYS', '串口参数已同步到设备（未保存到FLASH）', 'info');
+            Message.success('串口参数已应用');
           } catch (err) {
-            Message.error('串口参数更新失败');
+            Message.error('串口参数更新失败: ' + err.message);
           } finally {
             scanning.value = false;
           }
         } else {
-          Message.success('串口参数已更新');
+          Message.success('串口参数已本地更新（连接后发送）');
         }
       };
       
@@ -1688,6 +1686,8 @@ function initApp() {
             Message.info('正在读取设备信息...');
             const info = await dtuService.readDeviceInfo();
             deviceConfig.deviceInfo = info;
+            // 同步真实角色到 UI
+            deviceMode.value = info.role === 1 ? 'root' : 'child';
             Message.success('设备信息读取成功');
             return info;
           } catch (err) {
@@ -1701,6 +1701,11 @@ function initApp() {
             Message.info('正在读取串口配置...');
             const cfg = await dtuService.readUartCfg();
             deviceConfig.uartConfig = cfg;
+            // 同步到串口参数表单
+            serialParams.value.baudRate = DtuProtocol.getBaudRate(cfg.baudLevel);
+            serialParams.value.dataBits = cfg.dataBits;
+            serialParams.value.stopBits = cfg.stopBits;
+            serialParams.value.parity = DtuProtocol.getParityName(cfg.parity).toLowerCase();
             Message.success('串口配置读取成功');
             return cfg;
           } catch (err) {
@@ -2382,6 +2387,16 @@ function initApp() {
         }
       };
       
+      // 切换设备角色（对标 Flutter 的 _switchRole）
+      const switchDeviceMode = async (newMode) => {
+        if (serialConnected.value) {
+          await dtuOperations.setRole(newMode);
+        } else {
+          deviceMode.value = newMode;
+          Message.info(`角色已本地切换为: ${newMode === 'root' ? 'ROOT根节点' : 'NODE子节点'}`);
+        }
+      };
+      
       // 下拉框相关
       const showSelect = (name) => {
         const dropdown = document.getElementById(`select-${name}`);
@@ -2599,6 +2614,7 @@ function initApp() {
         simulateConnect,
         saveSettings,
         loadSettings,
+        switchDeviceMode,
         resetSettings,
         showSelect,
         selectOption,

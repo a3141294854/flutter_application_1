@@ -5,6 +5,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'page/home.dart';
 import 'page/bluetooth_connect_page.dart';
 import 'protocol/protocol.dart';
+import 'theme/app_theme.dart';
 
 // TODO [DEV ONLY]: 上线时删除此变量
 const bool kDevMode = true;
@@ -80,7 +81,7 @@ class _MyAppState extends State<MyApp> {
               Text('蓝牙连接已断开'),
             ],
           ),
-          backgroundColor: Colors.orange,
+          backgroundColor: NeuTheme.warning,
           duration: Duration(seconds: 3),
         ),
       );
@@ -98,20 +99,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'DTU 配置助手',
-      theme: ThemeData(
-        primarySwatch: Colors.lightBlue,
-        scaffoldBackgroundColor: const Color(0xFFF0F7FF),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF4A90D9),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFF0F7FF),
-          foregroundColor: Color(0xFF2D4A6F),
-          elevation: 0,
-        ),
-      ),
+      theme: NeuThemeData.light,
       home: _isConnected
           ? HomePage(
               device: _connectedDevice,

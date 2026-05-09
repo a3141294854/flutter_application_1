@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../protocol/protocol.dart';
+import '../theme/app_theme.dart';
 
 /// 二维码扫描结果模型
 class QRScanResult {
@@ -265,11 +266,11 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
             padding: const EdgeInsets.all(40),
             decoration: BoxDecoration(
-              color: const Color(0xFFF0F7FF),
+              color: NeuTheme.bg,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF4A90D9).withValues(alpha: 0.2),
+                  color: NeuTheme.accent.withValues(alpha: 0.2),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -278,11 +279,11 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
             child: const Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircularProgressIndicator(color: Color(0xFF4A90D9)),
+                CircularProgressIndicator(color: NeuTheme.accent),
                 SizedBox(height: 16),
                 Text(
                   '正在读取设备配置...',
-                  style: TextStyle(color: Color(0xFF5A7A9A), fontSize: 14),
+                  style: TextStyle(color: NeuTheme.textSecondary, fontSize: 14),
                 ),
               ],
             ),
@@ -300,11 +301,11 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFFF0F7FF),
+              color: NeuTheme.bg,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF4A90D9).withValues(alpha: 0.2),
+                  color: NeuTheme.accent.withValues(alpha: 0.2),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -313,14 +314,14 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                const Icon(Icons.error_outline, color: NeuTheme.error, size: 48),
                 const SizedBox(height: 16),
                 Text(
                   '读取配置失败',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF2D4A6F),
+                    color: NeuTheme.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -328,7 +329,7 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
                   _error!,
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF5A7A9A),
+                    color: NeuTheme.textSecondary,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -357,11 +358,11 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFFF0F7FF),
+            color: NeuTheme.bg,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF4A90D9).withValues(alpha: 0.2),
+                color: NeuTheme.accent.withValues(alpha: 0.2),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -377,7 +378,7 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
                   children: [
                     const Icon(
                       Icons.settings_input_component,
-                      color: Color(0xFF4A90D9),
+                      color: NeuTheme.accent,
                       size: 22,
                     ),
                     const SizedBox(width: 8),
@@ -390,14 +391,14 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF2D4A6F),
+                              color: NeuTheme.textPrimary,
                             ),
                           ),
                           Text(
                             widget.device.mac,
                             style: const TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF5A7A9A),
+                              color: NeuTheme.textSecondary,
                             ),
                           ),
                         ],
@@ -410,7 +411,7 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                Container(height: 1, color: const Color(0xFFE8F2FF)),
+                Container(height: 1, color: NeuTheme.card),
                 const SizedBox(height: 16),
 
                 // 串口参数
@@ -510,14 +511,14 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
   Widget _buildSectionTitle(String title, IconData icon) {
     return Row(
       children: [
-        Icon(icon, color: const Color(0xFF4A90D9), size: 16),
+        Icon(icon, color: NeuTheme.accent, size: 16),
         const SizedBox(width: 6),
         Text(
           title,
           style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF2D4A6F),
+            color: NeuTheme.textPrimary,
           ),
         ),
       ],
@@ -527,7 +528,7 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
   Widget _buildLabel(String text) {
     return Text(
       text,
-      style: const TextStyle(fontSize: 12, color: Color(0xFF5A7A9A)),
+      style: const TextStyle(fontSize: 12, color: NeuTheme.textSecondary),
     );
   }
 
@@ -641,11 +642,11 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
               color: _modbusItems.length < 8
-                  ? const Color(0xFFF0F7FF)
+                  ? NeuTheme.bg
                   : const Color(0xFFEDEDED),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: const Color(0xFF4A90D9),
+                color: NeuTheme.accent,
                 style: BorderStyle.solid,
               ),
             ),
@@ -654,7 +655,7 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
                 _modbusItems.length < 8 ? '+ 添加 Modbus 设备' : '已达到最大数量',
                 style: TextStyle(
                   color: _modbusItems.length < 8
-                      ? const Color(0xFF4A90D9)
+                      ? NeuTheme.accent
                       : const Color(0xFF9AA8C3),
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -676,7 +677,7 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE8F2FF)),
+        border: Border.all(color: NeuTheme.card),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -689,7 +690,7 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF2D4A6F),
+                  color: NeuTheme.textPrimary,
                 ),
               ),
               GestureDetector(
@@ -771,7 +772,7 @@ class _ChildNodeConfigDialogState extends State<ChildNodeConfigDialog> {
                           isExpanded: true,
                           style: const TextStyle(
                             fontSize: 13,
-                            color: Color(0xFF2D4A6F),
+                            color: NeuTheme.textPrimary,
                           ),
                           items: DtuProtocol.deviceTypeNames.entries.map((e) {
                             return DropdownMenuItem(
@@ -930,7 +931,7 @@ class _QRScannerDialogState extends State<QRScannerDialog> {
                   const Center(
                     child: Text(
                       '摄像头启动失败',
-                      style: TextStyle(color: Colors.orange),
+                      style: TextStyle(color: NeuTheme.warning),
                     ),
                   ),
                 // 扫描框
@@ -1038,11 +1039,11 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFFF0F7FF),
+            color: NeuTheme.bg,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF4A90D9).withValues(alpha: 0.2),
+                color: NeuTheme.accent.withValues(alpha: 0.2),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -1057,7 +1058,7 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                 children: [
                   const Icon(
                     Icons.add_circle_outline,
-                    color: Color(0xFF4A90D9),
+                    color: NeuTheme.accent,
                     size: 22,
                   ),
                   const SizedBox(width: 8),
@@ -1067,7 +1068,7 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF2D4A6F),
+                        color: NeuTheme.textPrimary,
                       ),
                     ),
                   ),
@@ -1080,23 +1081,23 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4A90D9).withValues(alpha: 0.1),
+                        color: NeuTheme.accent.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF4A90D9)),
+                        border: Border.all(color: NeuTheme.accent),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.qr_code_scanner,
-                            color: Color(0xFF4A90D9),
+                            color: NeuTheme.accent,
                             size: 16,
                           ),
                           SizedBox(width: 4),
                           Text(
                             '扫码',
                             style: TextStyle(
-                              color: Color(0xFF4A90D9),
+                              color: NeuTheme.accent,
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                             ),
@@ -1108,7 +1109,7 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                 ],
               ),
               const SizedBox(height: 16),
-              Container(height: 1, color: const Color(0xFFE8F2FF)),
+              Container(height: 1, color: NeuTheme.card),
               const SizedBox(height: 16),
 
               // 基本信息
@@ -1150,7 +1151,7 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                     borderSide: BorderSide(
                       color: _macError != null
                           ? Colors.red
-                          : const Color(0xFF4A90D9),
+                          : NeuTheme.accent,
                     ),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
@@ -1162,7 +1163,7 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                           padding: EdgeInsets.only(right: 8),
                           child: Icon(
                             Icons.check_circle,
-                            color: Colors.green,
+                            color: NeuTheme.success,
                             size: 20,
                           ),
                         )
@@ -1173,14 +1174,14 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
                 const SizedBox(height: 4),
                 Text(
                   _macError!,
-                  style: const TextStyle(color: Colors.red, fontSize: 11),
+                  style: const TextStyle(color: NeuTheme.error, fontSize: 11),
                 ),
               ],
               if (_fromQRCode) ...[
                 const SizedBox(height: 4),
                 const Text(
                   '✓ 已通过二维码扫描填充',
-                  style: TextStyle(color: Colors.green, fontSize: 11),
+                  style: TextStyle(color: NeuTheme.success, fontSize: 11),
                 ),
               ],
               const SizedBox(height: 24),
@@ -1245,14 +1246,14 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
   Widget _buildSectionTitle(String title, IconData icon) {
     return Row(
       children: [
-        Icon(icon, color: const Color(0xFF4A90D9), size: 16),
+        Icon(icon, color: NeuTheme.accent, size: 16),
         const SizedBox(width: 6),
         Text(
           title,
           style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF2D4A6F),
+            color: NeuTheme.textPrimary,
           ),
         ),
       ],
@@ -1262,7 +1263,7 @@ class _AddDeviceDialogState extends State<AddDeviceDialog> {
   Widget _buildLabel(String text) {
     return Text(
       text,
-      style: const TextStyle(fontSize: 12, color: Color(0xFF5A7A9A)),
+      style: const TextStyle(fontSize: 12, color: NeuTheme.textSecondary),
     );
   }
 }
@@ -1324,7 +1325,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('读取白名单失败: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('读取白名单失败: $e'), backgroundColor: NeuTheme.error),
         );
       }
     } finally {
@@ -1341,7 +1342,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('只有 ROOT 设备才能添加白名单'),
-            backgroundColor: Colors.orange,
+            backgroundColor: NeuTheme.warning,
           ),
         );
       }
@@ -1360,7 +1361,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('添加成功: $mac'), backgroundColor: Colors.green),
+          SnackBar(content: Text('添加成功: $mac'), backgroundColor: NeuTheme.success),
         );
       }
     } catch (e) {
@@ -1376,7 +1377,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('添加失败: $errorMsg'),
-            backgroundColor: Colors.red,
+            backgroundColor: NeuTheme.error,
           ),
         );
       }
@@ -1393,7 +1394,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('只有 ROOT 设备才能删除白名单'),
-            backgroundColor: Colors.orange,
+            backgroundColor: NeuTheme.warning,
           ),
         );
       }
@@ -1409,7 +1410,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('删除成功'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('删除成功'), backgroundColor: NeuTheme.success),
         );
       }
     } catch (e) {
@@ -1424,7 +1425,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('删除失败: $errorMsg'),
-            backgroundColor: Colors.red,
+            backgroundColor: NeuTheme.error,
           ),
         );
       }
@@ -1456,24 +1457,24 @@ class _DeviceListPageState extends State<DeviceListPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFF0F7FF),
+        backgroundColor: NeuTheme.bg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: const Text(
           '确认删除',
           style: TextStyle(
-            color: Color(0xFF2D4A6F),
+            color: NeuTheme.textPrimary,
             fontSize: 15,
             fontWeight: FontWeight.bold,
           ),
         ),
         content: Text(
           '确定要删除已选 ${_selectedMacs.length} 个设备吗？',
-          style: const TextStyle(color: Color(0xFF5A7A9A), fontSize: 13),
+          style: const TextStyle(color: NeuTheme.textSecondary, fontSize: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消', style: TextStyle(color: Color(0xFF5A7A9A))),
+            child: const Text('取消', style: TextStyle(color: NeuTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -1495,7 +1496,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('只有 ROOT 设备才能删除白名单'),
-            backgroundColor: Colors.orange,
+            backgroundColor: NeuTheme.warning,
           ),
         );
       }
@@ -1529,13 +1530,13 @@ class _DeviceListPageState extends State<DeviceListPage> {
       if (mounted) {
         if (failed.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已删除 $successCount 个设备'), backgroundColor: Colors.green),
+            SnackBar(content: Text('已删除 $successCount 个设备'), backgroundColor: NeuTheme.success),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('已删除 $successCount 个设备，${failed.length} 个删除失败'),
-              backgroundColor: Colors.orange,
+              backgroundColor: NeuTheme.warning,
             ),
           );
         }
@@ -1563,7 +1564,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('只有 ROOT 设备才能清空白名单'),
-            backgroundColor: Colors.orange,
+            backgroundColor: NeuTheme.warning,
           ),
         );
       }
@@ -1583,7 +1584,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已清空全部'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('已清空全部'), backgroundColor: NeuTheme.success),
         );
       }
     } catch (e) {
@@ -1598,7 +1599,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('清空失败: $errorMsg'),
-            backgroundColor: Colors.red,
+            backgroundColor: NeuTheme.error,
           ),
         );
       }
@@ -1626,7 +1627,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF2D4A6F),
+                        color: NeuTheme.textPrimary,
                       ),
                     ),
                   ),
@@ -1645,7 +1646,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text('当前没有设备可清空'),
-                                    backgroundColor: Colors.orange,
+                                    backgroundColor: NeuTheme.warning,
                                   ),
                                 );
                                 return;
@@ -1657,7 +1658,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                               size: 18,
                               color: widget.isConnected
                                   ? const Color(0xFFE85C5C)
-                                  : const Color(0xFFA0BCD6),
+                                  : NeuTheme.textMuted,
                             ),
                             label: Text(
                               '清空全部',
@@ -1665,7 +1666,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                                 fontSize: 13,
                                 color: widget.isConnected
                                     ? const Color(0xFFE85C5C)
-                                    : const Color(0xFFA0BCD6),
+                                    : NeuTheme.textMuted,
                               ),
                             ),
                           ),
@@ -1677,16 +1678,16 @@ class _DeviceListPageState extends State<DeviceListPage> {
                               _isSelectionMode ? Icons.close : Icons.checklist,
                               size: 18,
                               color: (_devices.isEmpty || !widget.isConnected)
-                                  ? const Color(0xFFA0BCD6)
-                                  : const Color(0xFF4A90D9),
+                                  ? NeuTheme.textMuted
+                                  : NeuTheme.accent,
                             ),
                             label: Text(
                               _isSelectionMode ? '取消选择' : '批量操作',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: (_devices.isEmpty || !widget.isConnected)
-                                    ? const Color(0xFFA0BCD6)
-                                    : const Color(0xFF4A90D9),
+                                    ? NeuTheme.textMuted
+                                    : NeuTheme.accent,
                               ),
                             ),
                           ),
@@ -1730,7 +1731,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                       Text(
                         '已选 ${_selectedMacs.length} 项',
                         style: const TextStyle(
-                          color: Color(0xFF2D4A6F),
+                          color: NeuTheme.textPrimary,
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                         ),
@@ -1745,7 +1746,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                           style: TextStyle(
                             fontSize: 13,
                             color: _selectedMacs.isEmpty
-                                ? const Color(0xFFA0BCD6)
+                                ? NeuTheme.textMuted
                                 : const Color(0xFFE85C5C),
                           ),
                         ),
@@ -1846,7 +1847,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
           Container(
             color: Colors.black.withValues(alpha: 0.2),
             child: const Center(
-              child: CircularProgressIndicator(color: Color(0xFF4A90D9)),
+              child: CircularProgressIndicator(color: NeuTheme.accent),
             ),
           ),
       ],
@@ -1860,17 +1861,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
   ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF4A90D9).withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: NeuTheme.cardDecoration(),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: GestureDetector(
@@ -1886,7 +1877,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                     child: Checkbox(
                       value: _selectedMacs.contains(device.mac),
                       onChanged: (_) => _toggleDeviceSelection(device.mac),
-                      activeColor: const Color(0xFF4A90D9),
+                      activeColor: NeuTheme.accent,
                     ),
                   ),
                 ),
@@ -1894,7 +1885,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8F2FF),
+                  color: NeuTheme.card,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Center(
@@ -1903,7 +1894,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF4A90D9),
+                      color: NeuTheme.accent,
                     ),
                   ),
                 ),
@@ -1919,7 +1910,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF2D4A6F),
+                        color: NeuTheme.textPrimary,
                       ),
                     ),
                   ],
@@ -1931,12 +1922,12 @@ class _DeviceListPageState extends State<DeviceListPage> {
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE8F2FF),
+                      color: NeuTheme.card,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
                       Icons.settings_input_component,
-                      color: Color(0xFF4A90D9),
+                      color: NeuTheme.accent,
                       size: 18,
                     ),
                   ),
@@ -1974,13 +1965,13 @@ class _DeviceListPageState extends State<DeviceListPage> {
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           color: widget.isConnected
-              ? const Color(0xFF4A90D9).withValues(alpha: 0.1)
-              : const Color(0xFFE8F2FF),
+              ? NeuTheme.accent.withValues(alpha: 0.1)
+              : NeuTheme.card,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: widget.isConnected
-                ? const Color(0xFF4A90D9)
-                : const Color(0xFFE8F2FF),
+                ? NeuTheme.accent
+                : NeuTheme.card,
             style: BorderStyle.solid,
           ),
         ),
@@ -1990,16 +1981,16 @@ class _DeviceListPageState extends State<DeviceListPage> {
             Icon(
               Icons.add,
               color: widget.isConnected
-                  ? const Color(0xFF4A90D9)
-                  : const Color(0xFFA0BCD6),
+                  ? NeuTheme.accent
+                  : NeuTheme.textMuted,
             ),
             const SizedBox(width: 8),
             Text(
               '添加设备到白名单',
               style: TextStyle(
                 color: widget.isConnected
-                    ? const Color(0xFF4A90D9)
-                    : const Color(0xFFA0BCD6),
+                    ? NeuTheme.accent
+                    : NeuTheme.textMuted,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -2013,24 +2004,24 @@ class _DeviceListPageState extends State<DeviceListPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFF0F7FF),
+        backgroundColor: NeuTheme.bg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: const Text(
           '清空全部设备',
           style: TextStyle(
-            color: Color(0xFF2D4A6F),
+            color: NeuTheme.textPrimary,
             fontSize: 15,
             fontWeight: FontWeight.bold,
           ),
         ),
         content: const Text(
           '确定要清空所有已添加的设备吗？此操作无法撤销。',
-          style: TextStyle(color: Color(0xFF5A7A9A), fontSize: 13),
+          style: TextStyle(color: NeuTheme.textSecondary, fontSize: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消', style: TextStyle(color: Color(0xFF5A7A9A))),
+            child: const Text('取消', style: TextStyle(color: NeuTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -2099,14 +2090,14 @@ class _DeviceListPageState extends State<DeviceListPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('配置已保存: ${device.mac}'),
-            backgroundColor: Colors.green,
+            backgroundColor: NeuTheme.success,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('配置失败: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('配置失败: $e'), backgroundColor: NeuTheme.error),
         );
       }
     } finally {
@@ -2118,24 +2109,24 @@ class _DeviceListPageState extends State<DeviceListPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFF0F7FF),
+        backgroundColor: NeuTheme.bg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: const Text(
           '确认删除',
           style: TextStyle(
-            color: Color(0xFF2D4A6F),
+            color: NeuTheme.textPrimary,
             fontSize: 15,
             fontWeight: FontWeight.bold,
           ),
         ),
         content: Text(
           '确定要删除 "$device.mac" 吗？',
-          style: const TextStyle(color: Color(0xFF5A7A9A), fontSize: 13),
+          style: const TextStyle(color: NeuTheme.textSecondary, fontSize: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消', style: TextStyle(color: Color(0xFF5A7A9A))),
+            child: const Text('取消', style: TextStyle(color: NeuTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -2186,16 +2177,16 @@ class _DialogButtonState extends State<_DialogButton> {
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: widget.isPrimary
-              ? (_isPressed ? const Color(0xFF3A80C9) : const Color(0xFF4A90D9))
-              : (_isPressed ? const Color(0xFFF0F7FF) : Colors.white),
+              ? (_isPressed ? NeuTheme.accentHover : NeuTheme.accent)
+              : (_isPressed ? NeuTheme.bg : Colors.white),
           borderRadius: BorderRadius.circular(12),
           border: widget.isPrimary
               ? null
-              : Border.all(color: const Color(0xFF4A90D9), width: 1.5),
+              : Border.all(color: NeuTheme.accent, width: 1.5),
           boxShadow: widget.isPrimary
               ? [
                   BoxShadow(
-                    color: const Color(0xFF4A90D9).withValues(alpha: 0.3),
+                    color: NeuTheme.accent.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
@@ -2208,7 +2199,7 @@ class _DialogButtonState extends State<_DialogButton> {
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,
-            color: widget.isPrimary ? Colors.white : const Color(0xFF4A90D9),
+            color: widget.isPrimary ? Colors.white : NeuTheme.accent,
           ),
         ),
       ),

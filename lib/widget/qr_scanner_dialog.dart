@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../theme/app_theme.dart';
 
 class QrScannerDialog extends StatefulWidget {
   const QrScannerDialog({super.key});
@@ -253,13 +254,13 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
                     onDetect: _onDetect,
                   )
                 else
-                  const Center(
+                  Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.no_photography, color: Colors.orange, size: 48),
-                        SizedBox(height: 16),
-                        Text('摄像头启动失败', style: TextStyle(color: Colors.orange)),
+                        const Icon(Icons.no_photography, color: NeuTheme.warning, size: 48),
+                        const SizedBox(height: 16),
+                        const Text('摄像头启动失败', style: TextStyle(color: NeuTheme.warning)),
                         SizedBox(height: 8),
                         Text('请检查摄像头权限', style: TextStyle(color: Colors.white54, fontSize: 12)),
                       ],
@@ -288,10 +289,10 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
                       height: 30,
                       decoration: BoxDecoration(
                         border: Border(
-                          top: isTop ? const BorderSide(color: Color(0xFF4A90D9), width: 4) : BorderSide.none,
-                          bottom: !isTop ? const BorderSide(color: Color(0xFF4A90D9), width: 4) : BorderSide.none,
-                          left: isLeft ? const BorderSide(color: Color(0xFF4A90D9), width: 4) : BorderSide.none,
-                          right: !isLeft ? const BorderSide(color: const Color(0xFF4A90D9), width: 4) : BorderSide.none,
+                          top: isTop ? const BorderSide(color: NeuTheme.accent, width: 4) : BorderSide.none,
+                          bottom: !isTop ? const BorderSide(color: NeuTheme.accent, width: 4) : BorderSide.none,
+                          left: isLeft ? const BorderSide(color: NeuTheme.accent, width: 4) : BorderSide.none,
+                          right: !isLeft ? const BorderSide(color: NeuTheme.accent, width: 4) : BorderSide.none,
                         ),
                       ),
                     ),
@@ -313,7 +314,7 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
                 Text(
                   _errorMessage ?? '请扫描设备上的蓝牙二维码',
                   style: TextStyle(
-                    color: _errorMessage != null ? Colors.orange : Colors.white70,
+                    color: _errorMessage != null ? NeuTheme.warning : Colors.white70,
                     fontSize: 13,
                   ),
                 ),

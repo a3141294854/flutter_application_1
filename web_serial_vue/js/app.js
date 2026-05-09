@@ -645,14 +645,15 @@ const DtuService = {
   async disconnect() {
     try {
       this.isConnected = false;
-      // 先关闭端口（会自动取消所有 reader）
+      // 先释放 reader，再关闭端口（避免卡死）
+      if (this.reader) {
+        try { await this.reader.cancel(); } catch (_) {}
+        try { this.reader.releaseLock(); } catch (_) {}
+        this.reader = null;
+      }
       if (this.port) {
         try { await this.port.close(); } catch (_) {}
         this.port = null;
-      }
-      // 清理 reader 引用
-      if (this.reader) {
-        this.reader = null;
       }
       this.onLog('USB', '已断开连接');
     } catch (err) {
@@ -662,38 +663,49 @@ const DtuService = {
 
   // ========== 通信核心 ==========
 
-  // 发送数据并等待响应 (移植自Flutter BleService.sendAndWait)
-  async sendAndWait(frame, timeoutMs = 3000) {
+  // 发送数据并等待响应 (带重试，应对 USB 串口丢字节)
+  async sendAndWait(frame, timeoutMs = 3000, retries = 2) {
     if (!this.isConnected || !this.port) {
       throw new Error('未连接到设备');
     }
 
-    return new Promise((resolve, reject) => {
-      const seq = frame[3]; // 从帧中获取SEQ
-      const timeoutId = setTimeout(() => {
-        this.pendingRequests.delete(seq);
-        reject(new Error('响应超时'));
-      }, timeoutMs);
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      const seq = frame[3];
+      const cmd = frame[2];
+      const label = attempt > 0 ? ` (重试${attempt})` : '';
 
-      // 将请求加入待处理列表
-      this.pendingRequests.set(seq, {
-        resolve: (result) => {
-          clearTimeout(timeoutId);
-          resolve(result);
-        },
-        reject: (error) => {
-          clearTimeout(timeoutId);
-          reject(error);
-        }
-      });
+      try {
+        const result = await new Promise((resolve, reject) => {
+          const timeoutId = setTimeout(() => {
+            this.pendingRequests.delete(seq);
+            reject(new Error('响应超时'));
+          }, timeoutMs);
 
-      // 发送帧
-      this._sendFrame(frame).catch(err => {
-        clearTimeout(timeoutId);
-        this.pendingRequests.delete(seq);
-        reject(err);
-      });
-    });
+          this.pendingRequests.set(seq, {
+            resolve: (r) => {
+              clearTimeout(timeoutId);
+              this.pendingRequests.delete(seq);
+              resolve(r);
+            },
+            reject: (e) => {
+              clearTimeout(timeoutId);
+              this.pendingRequests.delete(seq);
+              reject(e);
+            }
+          });
+
+          this._sendFrame(frame).catch(err => {
+            clearTimeout(timeoutId);
+            this.pendingRequests.delete(seq);
+            reject(err);
+          });
+        });
+        return result;
+      } catch (err) {
+        if (attempt >= retries) throw err;
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
   },
 
   // 发送帧数据
@@ -734,16 +746,18 @@ const DtuService = {
     // 处理解析结果
     for (const result of parseResult.results) {
       if (result.success) {
-        const cmd = result.frame?.[2] || 0;
+        const cmd = result.cmd ?? 0;
+        const seq = result.seq ?? -1;
         const status = result.body && result.body.length > 0 ? result.body[0] : undefined;
-        const hexData = result.frame ? DtuFrame.bytesToHex(result.frame) : DtuFrame.bytesToHex(result.body);
+        const hexData = DtuFrame.bytesToHex(result.body || []);
         const desc = DtuProtocol.getCmdDescription(cmd, status);
         const hasError = status !== undefined && status !== 0;
+        
         // 匹配已发起的请求
-        const pending = this.pendingRequests.get(result.seq);
+        const pending = this.pendingRequests.get(seq);
         if (pending) {
           pending.resolve(result);
-          this.pendingRequests.delete(result.seq);
+          this.pendingRequests.delete(seq);
           this.onLog('RX', hexData, hasError ? 'warning' : 'success');
         } else {
           this.onLog('RX', hexData, 'info');
@@ -790,29 +804,31 @@ const DtuService = {
           try { this.reader?.releaseLock(); } catch (_) {}
           this.reader = null;
         }
-        // 短暂延迟，避免紧循环
         if (!this.isConnected) break;
       }
-    } catch (_) {}
+    } catch (err) {
+      this.onLog('ERR', `读取循环崩溃: ${err.message}`, 'error');
+    }
   },
 
   // ========== 读取操作 ==========
 
-  // 读取设备信息
+  // 读取设备信息（V2: 响应无 name 字段）
   async readDeviceInfo() {
     const frame = DtuFrame.buildReadDevInfo();
     const result = await this.sendAndWait(frame);
     if (!result.success) throw new Error(result.error);
     
     const body = Array.from(result.body);
+    if (body.length < 8) throw new Error('设备信息数据长度不足');
     const deviceInfo = {
-      role: body[1],
+      role: body[1],            // STATUS(0) + ROLE(1)
       mac: DtuFrame.formatMac(body.slice(2, 8)),
-      name: String.fromCharCode(...body.slice(9, 9 + body[8]))
+      name: ''                   // V2: DTU 无名称
     };
     
     this.config.deviceInfo = deviceInfo;
-    this.onLog('DEV', `角色: ${deviceInfo.role === 1 ? 'ROOT' : 'NODE'}, MAC: ${deviceInfo.mac}, 名称: ${deviceInfo.name}`, 'info');
+    this.onLog('DEV', `角色: ${deviceInfo.role === 1 ? 'ROOT' : 'NODE'}, MAC: ${deviceInfo.mac}`, 'info');
     return deviceInfo;
   },
 
@@ -860,29 +876,45 @@ const DtuService = {
   },
 
   // 读取白名单 (需要ROOT权限)
+  // 读取白名单（V2：支持分片，循环 sendAndWait 直到收齐所有分片）
   async readWhiteList() {
-    const frame = DtuFrame.buildReadWhiteList();
-    const result = await this.sendAndWait(frame);
-    if (!result.success) throw new Error(result.error);
+    const allItems = [];
+    let fragIdx = 0, fragTotal = 1;
     
-    const body = Array.from(result.body);
-    const fragIdx = body[1];
-    const fragTotal = body[2];
-    const wlTotal = body[3];
-    const itemCount = body[4];
+    do {
+      const frame = DtuFrame.buildReadWhiteList();
+      const result = await this.sendAndWait(frame);
+      if (!result.success) throw new Error(result.error);
+      
+      const body = Array.from(result.body);
+      if (body[0] !== DtuProtocol.STATUS_SUCCESS) {
+        throw new Error(`读取白名单失败: ${DtuProtocol.getStatusName(body[0])}`);
+      }
+      
+      fragIdx = body[1];
+      fragTotal = body[2];
+      const wlTotal = body[3];
+      const itemCount = body[4];
+      
+      for (let i = 0; i < itemCount; i++) {
+        const offset = 5 + i * 6;
+        if (offset + 6 <= body.length) {
+          const macBytes = body.slice(offset, offset + 6);
+          allItems.push({ mac: DtuFrame.formatMac(macBytes) });
+        }
+      }
+      
+      this.onLog('WL', `白名单分片 ${fragIdx + 1}/${fragTotal}: ${itemCount} 项`, 'info');
+      
+      // 暂停一下让 DTU 准备下一个分片
+      if (fragTotal > 1 && fragIdx < fragTotal - 1) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+    } while (fragTotal > 1 && fragIdx < fragTotal - 1);
     
-    const whiteList = [];
-    for (let i = 0; i < itemCount; i++) {
-      const offset = 5 + i * 6;
-      const macBytes = body.slice(offset, offset + 6);
-      whiteList.push({
-        mac: DtuFrame.formatMac(macBytes)
-      });
-    }
-    
-    this.config.whiteList = whiteList;
-    this.onLog('WL', `白名单: 总条目 ${wlTotal}, 当前分片 ${itemCount}`, 'info');
-    return whiteList;
+    this.config.whiteList = allItems;
+    this.onLog('WL', `白名单读取完成: 共 ${allItems.length} 条目`, 'success');
+    return allItems;
   },
 
   // 读取白名单节点完整配置 (CMD 0x07)
@@ -1150,17 +1182,20 @@ const DtuService = {
 
   // ========== 完整配置管理 ==========
 
-  // 读取完整配置
+  // 读取完整配置（对齐 Flutter：await 自然间隔 + 50ms 防 USB 串口回连过快）
   async readAllConfig() {
     const results = [];
+    const delay = ms => new Promise(r => setTimeout(r, ms));
     
     // 读取设备信息
     const deviceInfo = await this.readDeviceInfo();
     results.push('✓ 设备信息已读取');
+    await delay(50);
     
     // 读取串口配置
     const uartConfig = await this.readUartCfg();
     results.push('✓ 串口配置已读取');
+    await delay(50);
     
     // 读取Modbus配置
     const modbusConfig = await this.readModbusCfg();
@@ -1168,9 +1203,11 @@ const DtuService = {
     
     // ROOT设备独有的功能
     if (deviceInfo.role === DtuProtocol.ROLE_ROOT) {
+      await delay(50);
       const whiteList = await this.readWhiteList();
       results.push('✓ 白名单已读取');
       
+      await delay(50);
       const powerConfig = await this.readPower();
       results.push('✓ 功率配置已读取');
     }
@@ -1388,8 +1425,8 @@ function initApp() {
       });
       
       // 波特率选项
-      const baudRates = [9600, 19200, 38400, 57600, 115200];
-      const dataBitsOptions = [5, 6, 7, 8];
+      const baudRates = [1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200];
+      const dataBitsOptions = [7, 8];
       const stopBitsOptions = [1, 2];
       const parityOptions = [
         { value: 'none', label: '无' },
@@ -1492,9 +1529,13 @@ function initApp() {
         return '';
       });
       
+      const _connectStage = ref(''); // '' | 'connecting' | 'initializing' | 'importing'
       const connectionText = computed(() => {
-        if (serialConnected.value) return '已连接';
-        if (scanning.value) return '连接中...';
+        if (serialConnected.value && !scanning.value) return '已连接';
+        if (scanning.value) {
+          const map = { 'connecting': '连接中…', 'initializing': '等待DTU启动…', 'importing': '导入配置中…' };
+          return map[_connectStage.value] || '连接中…';
+        }
         return '未连接';
       });
       
@@ -1598,29 +1639,32 @@ function initApp() {
         }
         try {
           scanning.value = true;
+          _connectStage.value = 'connecting';
           addLog('SYS', '正在请求USB设备，波特率: ' + serialParams.value.baudRate);
           
           // 使用DTU服务连接设备
           const success = await dtuService.connect(serialParams.value);
           if (success) {
             serialConnected.value = true;
-            // 连接后自动读取设备信息，确定角色
-            addLog('SYS', '正在导入设备配置...');
-            const info = await dtuOperations.readDeviceInfo();
-            if (info) {
-              deviceMode.value = info.role === 1 ? 'root' : 'child';
-              addLog('DEV', `设备角色: ${deviceMode.value === 'root' ? 'ROOT根节点' : 'NODE子节点'}`, 'info');
-            }
+            // 连接后等待 DTU 初始化（USB 串口需等固件完全就绪 + boot 日志打完）
+            _connectStage.value = 'initializing';
+            addLog('SYS', '等待 DTU 完成初始化...');
+            await new Promise(r => setTimeout(r, 3000));
+            _connectStage.value = 'importing';
+            addLog('SYS', '正在读取设备配置...');
+            await importConfig();
           } else {
             serialConnected.value = false;
           }
           
           scanning.value = false;
+          _connectStage.value = '';
           return success;
         } catch (err) {
           addLog('ERR', '连接失败: ' + err.message, 'error');
           serialConnected.value = false;
           scanning.value = false;
+          _connectStage.value = '';
           return false;
         }
       };
@@ -1741,15 +1785,19 @@ function initApp() {
             Message.info('正在读取白名单...');
             const list = await dtuService.readWhiteList();
             deviceConfig.whiteList = list;
-            // 更新UI中的设备列表
+            // 更新UI中的设备列表，用设备真实串口参数作为子设备默认值
+            const defaultBaud = serialParams.value.baudRate;
+            const defaultDataBits = serialParams.value.dataBits;
+            const defaultStopBits = serialParams.value.stopBits;
+            const defaultParity = serialParams.value.parity;
             devices.value = list.map(item => ({
               mac: item.mac,
               connected: false,
               modbusAddr: 1,
-              baudRate: 115200,
-              dataBits: 8,
-              stopBits: 1,
-              parity: 'none'
+              baudRate: defaultBaud,
+              dataBits: defaultDataBits,
+              stopBits: defaultStopBits,
+              parity: defaultParity
             }));
             Message.success('白名单读取成功');
             return list;
@@ -1866,16 +1914,6 @@ function initApp() {
           try {
             Message.info('正在添加白名单: ' + mac);
             await dtuService.addWhiteListItem(mac);
-            // UI中自动添加设备
-            devices.value.push({
-              mac: mac,
-              connected: false,
-              modbusAddr: 1,
-              baudRate: 115200,
-              dataBits: 8,
-              stopBits: 1,
-              parity: 'none'
-            });
             Message.success('白名单添加成功');
             return true;
           } catch (err) {
@@ -2076,6 +2114,13 @@ function initApp() {
         try {
           const mac = editingDevice.value.mac.toUpperCase();
           
+          // 检查重复 MAC（排除当前编辑的设备）
+          const dupIndex = devices.value.findIndex((d, i) => d.mac === mac && i !== editingIndex.value);
+          if (dupIndex >= 0) {
+            Message.error(`子设备 ${mac} 已存在，不能重复添加`);
+            return;
+          }
+          
           if (editingIndex.value >= 0) {
             const oldMac = devices.value[editingIndex.value].mac;
             if (oldMac !== mac) {
@@ -2083,6 +2128,21 @@ function initApp() {
               await dtuOperations.addWhiteListItem(mac);
             }
             devices.value[editingIndex.value] = { ...editingDevice.value, mac };
+            // 已连接时，同步子节点串口参数和 Modbus 预设到设备
+            if (serialConnected.value) {
+              const config = {
+                mac: mac,
+                baudLevel: getBaudRateLevel(editingDevice.value.baudRate || 115200),
+                parity: getParityValue(editingDevice.value.parity || 'none'),
+                stopBits: parseInt(editingDevice.value.stopBits || 1),
+                dataBits: parseInt(editingDevice.value.dataBits || 8),
+                modbusItems: (editingDevice.value.modbusPresets || []).map(p => ({
+                  addr: p.addr,
+                  devType: p.devType || 0x05
+                }))
+              };
+              await dtuOperations.setChildNodeConfig(config);
+            }
           } else {
             await dtuOperations.addWhiteListItem(mac);
             devices.value.push({ ...editingDevice.value, mac });
@@ -2298,6 +2358,10 @@ function initApp() {
         const x = event.clientX - rect.left;
         const percent = Math.max(0, Math.min(1, x / rect.width));
         slePower.value = Math.round(percent * 7);
+        // 点击后立即下发功率到设备
+        if (serialConnected.value) {
+          dtuOperations.setPower(slePower.value).catch(_ => {});
+        }
       };
       
       const startDrag = (event) => {
@@ -2314,6 +2378,10 @@ function initApp() {
         const onUp = () => {
           document.removeEventListener('mousemove', onMove);
           document.removeEventListener('mouseup', onUp);
+          // 拖拽结束后下发功率到设备
+          if (serialConnected.value) {
+            dtuOperations.setPower(slePower.value).catch(_ => {});
+          }
         };
         
         document.addEventListener('mousemove', onMove);
@@ -2332,45 +2400,99 @@ function initApp() {
         }, 500);
       };
       
-      // 保存设置 - 执行完整的配置写入流程
-      const saveSettings = async () => {
+      // TODO [DEV ONLY]: 调试用快速添加白名单子设备（MAC 自动递增）
+      let _debugMacByte = 0;
+      const debugQuickAddDevice = async () => {
+        if (!serialConnected.value || deviceMode.value !== 'root') {
+          Message.warning('请先连接并切换到根节点模式');
+          return;
+        }
+        // 自动递增 MAC，遇到已存在的继续往后跳
+        let mac;
+        let _attempts = 0;
+        do {
+          const _b = _debugMacByte.toString(16).toUpperCase().padStart(2, '0');
+          mac = `A1:A2:A3:A4:A5:${_b}`;
+          _debugMacByte = (_debugMacByte + 1) & 0xFF;
+          _attempts++;
+        } while (devices.value.some(d => d.mac === mac) && _attempts < 256);
+        
+        if (_attempts >= 256) {
+          Message.error('MAC 地址已耗尽');
+          return;
+        }
+
         try {
-          // 1. 设置设备角色
-          if (deviceMode.value === 'root') {
-            await dtuOperations.setRole('root');
-          } else {
-            await dtuOperations.setRole('child');
-          }
-          
-          // 2. 设置串口配置
-          await dtuOperations.setUartConfig();
-          
-          // 3. 设置Modbus配置
-          await dtuOperations.setModbusConfig();
-          
-          // 4. 如果是根节点模式，设置功率
-          if (deviceMode.value === 'root') {
-            await dtuOperations.setPower(slePower.value);
-          }
-          
-          // 5. 提交保存
-          await dtuOperations.commitConfig();
-          
-          Message.success('设置已保存');
+          await dtuOperations.addWhiteListItem(mac);
+          devices.value.push({
+            mac: mac,
+            connected: false,
+            modbusAddr: 1,
+            baudRate: serialParams.value.baudRate,
+            dataBits: serialParams.value.dataBits,
+            stopBits: serialParams.value.stopBits,
+            parity: serialParams.value.parity,
+            modbusPresets: Array.from({ length: 8 }, (_, i) => ({ addr: i + 1, devType: 0x05 }))
+          });
+          Message.success(`调试: 白名单已添加 ${mac}`);
         } catch (err) {
-          Message.error('保存设置失败: ' + err.message);
+          Message.error('调试: 添加失败: ' + err.message);
         }
       };
       
-      // 加载设置 - 读取完整配置
-      const loadSettings = async () => {
+      // 保存设置 - 仅发送 COMMIT 指令将已写入的配置保存到 FLASH
+      const saveSettings = async () => {
         try {
-          Message.info('正在读取配置...');
-          const result = await dtuOperations.readAllConfig();
-          Message.success('配置读取完成');
-          return result;
+          await dtuOperations.commitConfig();
+          Message.success('配置已保存到 FLASH');
         } catch (err) {
-          Message.error('读取配置失败: ' + err.message);
+          Message.error('保存失败: ' + err.message);
+        }
+      };
+      
+      // 导入配置 - 对齐 Flutter DtuService.readAllConfig()
+      const importConfig = async () => {
+        Message.info('正在导入设备配置...');
+        try {
+          // 一次性读取完整配置（对齐 Flutter）
+          await dtuService.readAllConfig();
+          const cfg = dtuService.config;
+          
+          // 同步到 Vue 响应式 refs
+          if (cfg.deviceInfo) {
+            deviceMode.value = cfg.deviceInfo.role === 1 ? 'root' : 'child';
+            deviceConfig.deviceInfo = cfg.deviceInfo;
+          }
+          if (cfg.uartConfig) {
+            serialParams.value.baudRate = DtuProtocol.getBaudRate(cfg.uartConfig.baudLevel);
+            serialParams.value.parity = DtuProtocol.getParityName(cfg.uartConfig.parity).toLowerCase();
+            serialParams.value.stopBits = cfg.uartConfig.stopBits;
+            serialParams.value.dataBits = cfg.uartConfig.dataBits;
+            deviceConfig.uartConfig = cfg.uartConfig;
+          }
+          if (cfg.modbusConfig && cfg.modbusConfig.items) {
+            modbusAddresses.value = cfg.modbusConfig.items.map(i => i.addr);
+            modbusDeviceTypes.value = cfg.modbusConfig.items.map(i => i.devType);
+            deviceConfig.modbusConfig = cfg.modbusConfig;
+          }
+          if (cfg.whiteList && deviceMode.value === 'root') {
+            devices.value = cfg.whiteList.map(item => ({
+              mac: item.mac, connected: false,
+              modbusAddr: 1,
+              baudRate: serialParams.value.baudRate,
+              dataBits: serialParams.value.dataBits,
+              stopBits: serialParams.value.stopBits,
+              parity: serialParams.value.parity
+            }));
+            deviceConfig.whiteList = cfg.whiteList;
+          }
+          if (cfg.powerConfig && deviceMode.value === 'root') {
+            slePower.value = cfg.powerConfig.power;
+            deviceConfig.powerConfig = cfg.powerConfig;
+          }
+          Message.success('配置导入完成');
+        } catch (err) {
+          Message.error('导入失败: ' + err.message);
         }
       };
       
@@ -2400,48 +2522,65 @@ function initApp() {
       // 下拉框相关
       const showSelect = (name) => {
         const dropdown = document.getElementById(`select-${name}`);
-        if (dropdown) {
-          const isShowing = dropdown.style.display === 'block';
-          document.querySelectorAll('.select-dropdown').forEach(el => {
-            if (el.id !== `select-${name}`) el.style.display = 'none';
-          });
-          dropdown.style.display = isShowing ? 'none' : 'block';
-          
-          // 当下拉框显示时，添加一个透明覆盖层阻止下层交互
-          if (!isShowing) {
-            document.body.classList.add('dropdown-open');
-            
-            // 强制将所有下拉框提升到body级别，防止被其他元素遮挡
-            // 只处理在层叠上下文中可能被遮挡的下拉框（如在模态框或表格中）
-            const parentModal = dropdown.closest('.modal, .serial-params-bar, .card');
-            if (parentModal) {
-              // 计算下拉框的位置
-              const trigger = dropdown.parentElement.querySelector('.select-trigger');
-              if (trigger) {
-                const rect = trigger.getBoundingClientRect();
-                
-                // 使用CSS类而不是内联样式
-                dropdown.classList.add('fixed-position');
-                dropdown.style.top = `${rect.bottom + window.scrollY}px`;
-                dropdown.style.left = `${rect.left + window.scrollX}px`;
-                dropdown.style.width = `${rect.width}px`;
-                
-                // 记录原始父元素
-                const originalParent = dropdown.parentElement;
-                originalParent.setAttribute('data-dropdown-id', dropdown.id);
-                
-                // 将下拉框移动到body直接子元素
-                document.body.appendChild(dropdown);
+        if (!dropdown) return;
+        
+        const isShowing = dropdown.style.display === 'block';
+        
+        // 先关闭其他下拉框，并清理它们的 fixed-position 状态
+        document.querySelectorAll('.select-dropdown').forEach(el => {
+          if (el.id !== `select-${name}`) {
+            el.style.display = 'none';
+            if (el.classList.contains('fixed-position')) {
+              el.classList.remove('fixed-position');
+              el.style.position = '';
+              el.style.top = '';
+              el.style.left = '';
+              el.style.width = '';
+              el.style.zIndex = '';
+              // 移回原父元素
+              const origId = el.getAttribute('data-dropdown-id');
+              const origParent = origId ? document.querySelector(`[data-dropdown-id="${origId}"]`) : null;
+              if (origParent && origParent !== el.parentElement) {
+                origParent.appendChild(el);
               }
             }
-          } else {
-            document.body.classList.remove('dropdown-open');
-            // 移除fixed定位，恢复原始状态
+          }
+        });
+        
+        if (isShowing) {
+          // 关闭当前下拉框
+          dropdown.style.display = 'none';
+          document.body.classList.remove('dropdown-open');
+          // 清理 fixed-position 状态并移回原父元素
+          if (dropdown.classList.contains('fixed-position')) {
+            dropdown.classList.remove('fixed-position');
             dropdown.style.position = '';
             dropdown.style.top = '';
             dropdown.style.left = '';
             dropdown.style.width = '';
             dropdown.style.zIndex = '';
+            const origParent = document.querySelector(`[data-dropdown-id="${dropdown.id}"]`);
+            if (origParent && origParent !== dropdown.parentElement) {
+              origParent.appendChild(dropdown);
+            }
+          }
+        } else {
+          // 打开下拉框
+          dropdown.style.display = 'block';
+          document.body.classList.add('dropdown-open');
+          // 在原始父元素上标记，供 closeAllSelects 恢复用
+          const origParent = dropdown.parentElement;
+          origParent.setAttribute('data-dropdown-id', dropdown.id);
+          // 计算位置并移到 body
+          const trigger = dropdown.parentElement.querySelector('.select-trigger');
+          if (trigger) {
+            const rect = trigger.getBoundingClientRect();
+            dropdown.classList.add('fixed-position');
+            dropdown.style.top = `${rect.bottom + window.scrollY}px`;
+            dropdown.style.left = `${rect.left + window.scrollX}px`;
+            dropdown.style.width = `${Math.max(rect.width, 120)}px`;
+            dropdown.style.zIndex = '10000';
+            document.body.appendChild(dropdown);
           }
         }
       };
@@ -2449,8 +2588,16 @@ function initApp() {
       const selectOption = (name, value) => {
         if (name === 'slePower') {
           slePower.value = value;
+          // 立即下发功率设置到设备（不调用 commit）
+          if (serialConnected.value) {
+            dtuOperations.setPower(value).catch(_ => {});
+          }
         } else {
           serialParams.value[name] = value;
+          // 串口参数改动后立即下发 SET_UART_CFG
+          if (serialConnected.value) {
+            dtuOperations.setUartConfig().catch(_ => {});
+          }
         }
         const dropdown = document.getElementById(`select-${name}`);
         if (dropdown) {
@@ -2612,8 +2759,9 @@ function initApp() {
         setPowerByClick,
         startDrag,
         simulateConnect,
+        debugQuickAddDevice,
         saveSettings,
-        loadSettings,
+        importConfig,
         switchDeviceMode,
         resetSettings,
         showSelect,

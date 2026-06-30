@@ -1841,6 +1841,41 @@ function initApp() {
         async readAllConfig() {
           Message.info('正在读取完整配置...');
           const result = await dtuService.readAllConfig();
+          const cfg = dtuService.config;
+
+          if (cfg.deviceInfo) {
+            deviceMode.value = cfg.deviceInfo.role === 1 ? 'root' : 'child';
+            deviceConfig.deviceInfo = cfg.deviceInfo;
+          }
+          if (cfg.uartConfig) {
+            serialParams.value.baudRate = DtuProtocol.getBaudRate(cfg.uartConfig.baudLevel);
+            serialParams.value.parity = DtuProtocol.getParityName(cfg.uartConfig.parity).toLowerCase();
+            serialParams.value.stopBits = cfg.uartConfig.stopBits;
+            serialParams.value.dataBits = cfg.uartConfig.dataBits;
+            deviceConfig.uartConfig = cfg.uartConfig;
+          }
+          if (cfg.modbusConfig && cfg.modbusConfig.items) {
+            modbusAddresses.value = cfg.modbusConfig.items.map(item => item.addr);
+            modbusDeviceTypes.value = cfg.modbusConfig.items.map(item => item.devType);
+            deviceConfig.modbusConfig = cfg.modbusConfig;
+          }
+          if (cfg.whiteList && deviceMode.value === 'root') {
+            devices.value = cfg.whiteList.map(item => ({
+              mac: item.mac,
+              connected: false,
+              modbusAddr: 1,
+              baudRate: serialParams.value.baudRate,
+              dataBits: serialParams.value.dataBits,
+              stopBits: serialParams.value.stopBits,
+              parity: serialParams.value.parity
+            }));
+            deviceConfig.whiteList = cfg.whiteList;
+          }
+          if (cfg.powerConfig && deviceMode.value === 'root') {
+            slePower.value = cfg.powerConfig.power;
+            deviceConfig.powerConfig = cfg.powerConfig;
+          }
+
           Message.success('完整配置读取完成');
           return result;
         },

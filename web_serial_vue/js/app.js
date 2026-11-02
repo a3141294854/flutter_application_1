@@ -1407,7 +1407,7 @@ const SerialPort = {
 // 创建 Vue 应用
 // ========================================
 function initApp() {
-  const { createApp, ref, computed, nextTick, onMounted, reactive } = Vue;
+  const { createApp, ref, computed, nextTick, onMounted, onUnmounted, reactive } = Vue;
   
   const app = createApp({
     setup() {
@@ -2489,42 +2489,7 @@ function initApp() {
       const importConfig = async () => {
         Message.info('正在导入设备配置...');
         try {
-          // 一次性读取完整配置（对齐 Flutter）
-          await dtuService.readAllConfig();
-          const cfg = dtuService.config;
-          
-          // 同步到 Vue 响应式 refs
-          if (cfg.deviceInfo) {
-            deviceMode.value = cfg.deviceInfo.role === 1 ? 'root' : 'child';
-            deviceConfig.deviceInfo = cfg.deviceInfo;
-          }
-          if (cfg.uartConfig) {
-            serialParams.value.baudRate = DtuProtocol.getBaudRate(cfg.uartConfig.baudLevel);
-            serialParams.value.parity = DtuProtocol.getParityName(cfg.uartConfig.parity).toLowerCase();
-            serialParams.value.stopBits = cfg.uartConfig.stopBits;
-            serialParams.value.dataBits = cfg.uartConfig.dataBits;
-            deviceConfig.uartConfig = cfg.uartConfig;
-          }
-          if (cfg.modbusConfig && cfg.modbusConfig.items) {
-            modbusAddresses.value = cfg.modbusConfig.items.map(i => i.addr);
-            modbusDeviceTypes.value = cfg.modbusConfig.items.map(i => i.devType);
-            deviceConfig.modbusConfig = cfg.modbusConfig;
-          }
-          if (cfg.whiteList && deviceMode.value === 'root') {
-            devices.value = cfg.whiteList.map(item => ({
-              mac: item.mac, connected: false,
-              modbusAddr: 1,
-              baudRate: serialParams.value.baudRate,
-              dataBits: serialParams.value.dataBits,
-              stopBits: serialParams.value.stopBits,
-              parity: serialParams.value.parity
-            }));
-            deviceConfig.whiteList = cfg.whiteList;
-          }
-          if (cfg.powerConfig && deviceMode.value === 'root') {
-            slePower.value = cfg.powerConfig.power;
-            deviceConfig.powerConfig = cfg.powerConfig;
-          }
+          await dtuOperations.readAllConfig();
           Message.success('配置导入完成');
         } catch (err) {
           Message.error('导入失败: ' + err.message);
@@ -2698,6 +2663,15 @@ function initApp() {
         document.body.classList.remove('dropdown-open');
       };
       
+      const handlePortDisconnect = (event) => {
+        const disconnectedPort = event.target;
+        if (dtuService && dtuService.port === disconnectedPort) {
+          addLog('USB', '串口已拔出，正在断开连接', 'warning');
+          serialConnected.value = false;
+          dtuService.disconnect().catch(() => {});
+        }
+      };
+
       onMounted(() => {
         addLog('SYS', 'DTU 配置助手 Web Serial 版本已启动');
         addLog('SYS', '请连接USB设备开始通信');
@@ -2705,6 +2679,10 @@ function initApp() {
         // 创建DTU服务实例
         dtuService = Object.create(DtuService);
         dtuService.constructor(addLog, addDetailedLog);
+
+        if (navigator.serial && navigator.serial.addEventListener) {
+          navigator.serial.addEventListener('disconnect', handlePortDisconnect);
+        }
         
         document.addEventListener('click', (e) => {
           if (!e.target.closest('.select')) {
@@ -2729,6 +2707,12 @@ function initApp() {
             document.body.classList.remove('dropdown-open');
           }
         });
+      });
+
+      onUnmounted(() => {
+        if (navigator.serial && navigator.serial.removeEventListener) {
+          navigator.serial.removeEventListener('disconnect', handlePortDisconnect);
+        }
       });
       
       return {

@@ -1617,13 +1617,16 @@ class _DeviceListPageState extends State<DeviceListPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+              // 标题 + 操作按钮
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const Expanded(
                     child: Text(
                       '子设备白名单',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -1634,11 +1637,8 @@ class _DeviceListPageState extends State<DeviceListPage> {
                   Flexible(
                     child: Align(
                       alignment: Alignment.centerRight,
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        alignment: WrapAlignment.end,
-                        crossAxisAlignment: WrapCrossAlignment.center,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           TextButton.icon(
                             onPressed: () {
@@ -1655,28 +1655,29 @@ class _DeviceListPageState extends State<DeviceListPage> {
                             },
                             icon: Icon(
                               Icons.delete_sweep,
-                              size: 18,
+                              size: 15,
                               color: widget.isConnected
                                   ? const Color(0xFFE85C5C)
                                   : NeuTheme.textMuted,
                             ),
                             label: Text(
-                              '清空全部',
+                              '清空',
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 12,
                                 color: widget.isConnected
                                     ? const Color(0xFFE85C5C)
                                     : NeuTheme.textMuted,
                               ),
                             ),
                           ),
+                          const SizedBox(width: 4),
                           TextButton.icon(
                             onPressed: (_devices.isEmpty || !widget.isConnected)
                                 ? null
                                 : _toggleSelectionMode,
                             icon: Icon(
                               _isSelectionMode ? Icons.close : Icons.checklist,
-                              size: 18,
+                              size: 15,
                               color: (_devices.isEmpty || !widget.isConnected)
                                   ? NeuTheme.textMuted
                                   : NeuTheme.accent,
@@ -1684,7 +1685,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                             label: Text(
                               _isSelectionMode ? '取消选择' : '批量操作',
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 12,
                                 color: (_devices.isEmpty || !widget.isConnected)
                                     ? NeuTheme.textMuted
                                     : NeuTheme.accent,
@@ -1703,11 +1704,12 @@ class _DeviceListPageState extends State<DeviceListPage> {
                 onChanged: _onSearchChanged,
                 decoration: InputDecoration(
                   hintText: '搜索 MAC 地址',
-                  prefixIcon: const Icon(Icons.search, size: 20),
+                  hintStyle: const TextStyle(fontSize: 13),
+                  prefixIcon: const Icon(Icons.search, size: 18),
                   suffixIcon: _searchQuery.isEmpty
                       ? null
                       : IconButton(
-                          icon: const Icon(Icons.clear, size: 20),
+                          icon: const Icon(Icons.clear, size: 18),
                           onPressed: () {
                             _searchController.clear();
                             _onSearchChanged('');
@@ -1715,17 +1717,17 @@ class _DeviceListPageState extends State<DeviceListPage> {
                         ),
                   filled: true,
                   fillColor: const Color(0xFFF5F7FB),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 6),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide.none,
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               if (_isSelectionMode)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: 6),
                   child: Row(
                     children: [
                       Text(
@@ -1754,7 +1756,6 @@ class _DeviceListPageState extends State<DeviceListPage> {
                     ],
                   ),
                 ),
-              const SizedBox(height: 8),
               if (_devices.isEmpty && !_isLoading)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
@@ -1776,7 +1777,7 @@ class _DeviceListPageState extends State<DeviceListPage> {
                         ),
                         SizedBox(height: 4),
                         Text(
-                          '点击 + 添加设备',
+                          '点击下方按钮添加设备',
                           style: TextStyle(
                             color: Color(0xFFA0BCD6),
                             fontSize: 12,
@@ -1834,10 +1835,10 @@ class _DeviceListPageState extends State<DeviceListPage> {
                     ),
                   ),
                 ),
-              const SizedBox(height: 12),
-              // 添加按钮
+              const Spacer(),
+              // 添加按钮 - 固定在底部
               _buildAddButton(context),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -1962,12 +1963,12 @@ class _DeviceListPageState extends State<DeviceListPage> {
           ? () => _showAddDeviceDialog(context)
           : null,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
           color: widget.isConnected
               ? NeuTheme.accent.withValues(alpha: 0.1)
               : NeuTheme.card,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: widget.isConnected
                 ? NeuTheme.accent
@@ -1980,14 +1981,16 @@ class _DeviceListPageState extends State<DeviceListPage> {
           children: [
             Icon(
               Icons.add,
+              size: 18,
               color: widget.isConnected
                   ? NeuTheme.accent
                   : NeuTheme.textMuted,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Text(
               '添加设备到白名单',
               style: TextStyle(
+                fontSize: 13,
                 color: widget.isConnected
                     ? NeuTheme.accent
                     : NeuTheme.textMuted,

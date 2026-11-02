@@ -14,12 +14,14 @@ class HomePage extends StatefulWidget {
   final BluetoothDevice? device;
   final DtuService dtuService;
   final VoidCallback onDisconnect;
+  final VoidCallback? onBack;
 
   const HomePage({
     super.key,
     this.device,
     required this.dtuService,
     required this.onDisconnect,
+    this.onBack,
   });
 
   @override
@@ -78,6 +80,14 @@ class _HomePageState extends State<HomePage> {
               ),
               child: Row(
                 children: [
+                  // 返回按钮
+                  IconButton(
+                    onPressed: widget.onBack ?? widget.onDisconnect,
+                    icon: const Icon(
+                      Icons.arrow_back,
+                      color: NeuTheme.textMuted,
+                    ),
+                  ),
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -222,7 +232,7 @@ class _HomePageState extends State<HomePage> {
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: Row(
               children: [
                 if (_nodeType == NodeType.root)
@@ -254,15 +264,17 @@ class _HomePageState extends State<HomePage> {
           Icon(
             icon,
             color: isSelected ? NeuTheme.accent : NeuTheme.textMuted,
-            size: 24,
+            size: 20,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: isSelected ? NeuTheme.accent : NeuTheme.textMuted,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              fontSize: 12,
+              fontSize: 11,
             ),
           ),
         ],

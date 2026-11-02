@@ -98,6 +98,23 @@ class _BluetoothConnectPageState extends State<BluetoothConnectPage> {
   void _skipToConnected() => widget.onDevSkip?.call();
 
   Widget _buildBluetoothButton() => Stack(children: [
+    // 返回按钮
+    Positioned(
+      top: 8,
+      left: 8,
+      child: GestureDetector(
+        onTap: () => Navigator.pop(context),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: NeuTheme.card,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: NeuTheme.shadowRaisedSm,
+          ),
+          child: const Icon(Icons.arrow_back, color: NeuTheme.textPrimary, size: 22),
+        ),
+      ),
+    ),
     Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
       GestureDetector(onTap: _scanQrAndConnect, child: Container(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12), decoration: BoxDecoration(color: NeuTheme.card, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: NeuTheme.accent.withValues(alpha: 0.1), blurRadius: 12, offset: const Offset(0, 4))], border: Border.all(color: NeuTheme.accent.withValues(alpha: 0.3))), child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.qr_code_scanner, size: 20, color: NeuTheme.accent), SizedBox(width: 10), Text('扫码连接', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: NeuTheme.textPrimary))]))),
       const SizedBox(height: 24),

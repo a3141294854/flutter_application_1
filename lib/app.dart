@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'page/home.dart';
 import 'page/bluetooth_connect_page.dart';
+import 'page/mode_select_page.dart';
 import 'protocol/protocol.dart';
 import 'theme/app_theme.dart';
 
@@ -18,7 +19,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  bool _isConnected = false;
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
   BluetoothDevice? _connectedDevice;
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
 
@@ -43,16 +45,32 @@ class _MyAppState extends State<MyApp> {
       debugPrint('读取设备信息失败: $e');
     }
 
-    setState(() {
-      _isConnected = true;
-    });
+    // 从蓝牙连接页跳转到 HomePage
+    _navigatorKey.currentState?.pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => HomePage(
+          device: _connectedDevice,
+          dtuService: _dtuService,
+          onDisconnect: _disconnectAndReturn,
+          onBack: () => _onBackFromHome(),
+        ),
+      ),
+    );
   }
 
   // TODO [DEV ONLY]: 上线时删除此方法
   void _onDevSkipConnected() {
-    setState(() {
-      _isConnected = true;
-    });
+    // 从蓝牙连接页跳转到 HomePage
+    _navigatorKey.currentState?.pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => HomePage(
+          device: null,
+          dtuService: _dtuService,
+          onDisconnect: _disconnectAndReturn,
+          onBack: () => _onBackFromHome(),
+        ),
+      ),
+    );
   }
 
   void _listenConnectionState(BluetoothDevice device) {
@@ -69,9 +87,6 @@ class _MyAppState extends State<MyApp> {
     _connectedDevice = null;
     await _dtuService.disconnect();
     if (mounted) {
-      setState(() {
-        _isConnected = false;
-      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Row(
@@ -85,7 +100,19 @@ class _MyAppState extends State<MyApp> {
           duration: Duration(seconds: 3),
         ),
       );
+      // pop 回模式选择页
+      _navigatorKey.currentState?.pop();
     }
+  }
+
+  void _onBackFromHome() async {
+    if (_connectedDevice != null) {
+      await _connectedDevice!.disconnect();
+    }
+    _connectionSubscription?.cancel();
+    _connectedDevice = null;
+    await _dtuService.disconnect();
+    _navigatorKey.currentState?.pop();
   }
 
   void _disconnectAndReturn() async {
@@ -100,17 +127,19 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'DTU 配置助手',
       theme: NeuThemeData.light,
-      home: _isConnected
-          ? HomePage(
-              device: _connectedDevice,
-              dtuService: _dtuService,
-              onDisconnect: _disconnectAndReturn,
-            )
-          : BluetoothConnectPage(
-              onConnected: _onDeviceConnected,
-              // TODO [DEV ONLY]: 上线时删除此参数
-              onDevSkip: _onDevSkipConnected,
+      navigatorKey: _navigatorKey,
+      home: ModeSelectPage(
+        onBluetoothConfig: () {
+          _navigatorKey.currentState?.push(
+            MaterialPageRoute(
+              builder: (context) => BluetoothConnectPage(
+                onConnected: _onDeviceConnected,
+                onDevSkip: _onDevSkipConnected,
+              ),
             ),
+          );
+        },
+      ),
       debugShowCheckedModeBanner: false,
     );
   }

@@ -37,6 +37,16 @@ D:\flutter\bin\flutter.bat build apk --release
 - 提交信息用中文短句（例：「增加串口参数的同步」），一次提交只做一件事。
 - 网页发布没有自动化脚本。当前线上部署见下节，要换地址先跟用户确认。
 
+## 上传 GitHub
+
+- 仓库 `https://github.com/a3141294854/flutter_application_1`（公开），本地 `main` 推 `origin main`。
+- 全局 git 配了代理 `http(s).proxy=127.0.0.1:7897`（Clash，需开着）。
+- 在 DSH 沙箱里直接 `git push` 会失败：schannel 报 `SEC_E_NO_CREDENTIALS`，Git 凭据管理器也起不来。读操作（`ls-remote` / `fetch`）加 `-c http.sslBackend=openssl` 就够；推送要同样加后端并申请一次完整权限（full access）：
+
+  ```
+  git -c http.sslBackend=openssl -c http.sslCAInfo='C:/Program Files/Git/mingw64/etc/ssl/certs/ca-bundle.crt' push origin main
+  ```
+
 ## 网页线上部署（personal-server）
 
 - **正式地址：`https://fazeclan.cloud/`**（Let's Encrypt 证书，无需警告，WebSerial 可用）；`http://fazeclan.cloud/` 会 301 到 https；`www.fazeclan.cloud` 同样可用。

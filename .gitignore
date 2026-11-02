@@ -46,3 +46,11 @@ app.*.map.json
 **/android/**/build/
 *.jks
 *.keystore
+
+# 本地调试产物、截图和命令行误留文件，不上传
+/curl-trace.txt
+/deploy-preview*.png
+/$null
+/{'addr
+# 网页版旧副本（以 web_serial_vue/ 为准）
+/jiancha/
